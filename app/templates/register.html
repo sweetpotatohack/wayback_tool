@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Регистрация · GhostIndex{% endblock %}
+{% block mainclass %}auth-shell{% endblock %}
+{% block content %}
+<section class="auth-pane visual">
+  <p class="eyebrow">Запрос допуска</p>
+  <h1>Новая карточка<br />сотрудника.</h1>
+  <p class="lede">Регистрация не даёт вход сразу. Администратор видит заявку и одобряет её вручную. Админский пароль печатается в консоль при каждом запуске сервиса.</p>
+</section>
+<section class="auth-pane form-pane">
+  <p class="stamp">new accession</p>
+  <h2>Регистрация</h2>
+  {% if err %}<p class="banner err">{{ err }}</p>{% endif %}
+  <form class="stack" method="post" action="/register">
+    <label>Отображаемое имя
+      <input name="display_name" maxlength="120" />
+    </label>
+    <label>Логин
+      <input name="username" required minlength="3" autocomplete="username" />
+    </label>
+    <label>Почта
+      <input name="email" type="email" required autocomplete="email" />
+    </label>
+    <label>Пароль
+      <input name="password" type="password" required minlength="8" autocomplete="new-password" />
+    </label>
+    <button class="btn copper" type="submit">Отправить заявку</button>
+  </form>
+  <p class="muted">Уже есть доступ? <a href="/login">Войти</a></p>
+</section>
+{% endblock %}

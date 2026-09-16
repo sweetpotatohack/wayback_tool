@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}Дашборд · GhostIndex{% endblock %}
+{% block content %}
+<div class="bureau-dashboard" id="bureau-dashboard" data-period-mode="{{ period.mode|default('all') }}">
+  <header class="bureau-masthead">
+    <div class="masthead-rule"></div>
+    <div class="masthead-row">
+      <div class="masthead-brand-col">
+        <p class="eyebrow">Сводка бюро</p>
+        <h1>Добрый день, {{ user.display_name or user.username }}.</h1>
+        <p class="lede masthead-deck">Проекты, расписания и критичность находок по вашим целям — личное досье архивариуса.</p>
+      </div>
+      <div class="masthead-side">
+        <p class="masthead-date">Выпуск от {{ issue_date|default('', true) }}</p>
+        <p class="masthead-edition">Дело № {{ "%04d"|format(cards|length) }} · только ваши материалы</p>
+        <a class="btn copper bureau-new-btn" href="/projects/new">+ Новое дело</a>
+      </div>
+    </div>
+    <div class="masthead-rule masthead-rule--thick"></div>
+  </header>
+
+  <section class="bureau-period" aria-label="Период отчёта">
+    <div class="bureau-period-head">
+      <h2 class="bureau-period-title">Период отчёта</h2>
+      <span class="bureau-period-label" id="period-label">{{ period.label|default('Всё время') }}</span>
+    </div>
+    <form class="bureau-period-form" id="period-form">
+      <div class="period-seg-bar" role="radiogroup" aria-label="Режим периода">
+        <label class="period-seg">
+          <input type="radio" name="period_mode" value="all" checked />
+          <span class="period-seg-ui"><span class="period-seg-dot" aria-hidden="true"></span><span class="period-seg-text">Всё время</span></span>
+        </label>
+        <label class="period-seg">
+          <input type="radio" name="period_mode" value="range" />
+          <span class="period-seg-ui"><span class="period-seg-dot" aria-hidden="true"></span><span class="period-seg-text">Отрезок</span></span>
+        </label>
+        <label class="period-seg">
+          <input type="radio" name="period_mode" value="day" />
+          <span class="period-seg-ui"><span class="period-seg-dot" aria-hidden="true"></span><span class="period-seg-text">Точная дата</span></span>
+        </label>
+      </div>
+      <div class="period-fields period-fields--range" id="period-fields-range" hidden>
+        <label class="period-date"><span class="period-date-label">с</span><input type="date" name="date_from" id="period-from" /></label>
+        <label class="period-date"><span class="period-date-label">по</span><input type="date" name="date_to" id="period-to" /></label>
+      </div>
+      <div class="period-fields period-fields--day" id="period-fields-day" hidden>
+        <label class="period-date"><span class="period-date-label">Дата</span><input type="date" name="date" id="period-day" /></label>
+      </div>
+      <button type="submit" class="btn copper period-apply">Применить</button>
+    </form>
+    <div class="bureau-export" id="bureau-export">
+      <label class="export-scope">
+        <span class="period-date-label">Выгрузка</span>
+        <select id="export-project" aria-label="Проект для выгрузки">
+          <option value="all">Все проекты</option>
+          {% for card in cards %}
+          <option value="{{ card.id }}">{{ card.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="export-format-bar" role="group" aria-label="Формат выгрузки">
+        <button type="button" class="btn ghost sm export-btn" data-export="csv">CSV</button>
+        <button type="button" class="btn ghost sm export-btn" data-export="txt">TXT</button>
+        <button type="button" class="btn ghost sm export-btn" data-export="html">HTML</button>
+        <button type="button" class="btn ghost sm export-btn" data-export="pdf">PDF</button>
+      </div>
+      <p class="export-hint">Период — как в фильтре выше. HTML/PDF включают скриншоты и описания. PDF требует chromium.</p>
+    </div>
+  </section>
+
+  <section class="bureau-ledger" aria-label="Сводка" id="bureau-ledger">
+    <article class="ledger-cell">
+      <span class="ledger-label">Проекты</span>
+      <strong class="ledger-num" id="stat-projects">{{ cards|length }}</strong>
+      <span class="ledger-note">активных дел</span>
+    </article>
+    <article class="ledger-cell">
+      <span class="ledger-label">Находки</span>
+      <strong class="ledger-num" id="stat-findings">{{ total_findings }}</strong>
+      <span class="ledger-note">за период</span>
+    </article>
+    <article class="ledger-cell ledger-cell--crit">
+      <span class="ledger-label">Критичные</span>
+      <strong class="ledger-num" id="stat-critical">{{ sev.critical }}</strong>
+      <span class="ledger-note">требуют внимания</span>
+    </article>
+    <article class="ledger-cell ledger-cell--high">
+      <span class="ledger-label">Высокие</span>
+      <strong class="ledger-num" id="stat-high">{{ sev.high }}</strong>
+      <span class="ledger-note">приоритет</span>
+    </article>
+    <article class="ledger-cell ledger-cell--live" id="ledger-running">
+      <span class="ledger-label">В работе</span>
+      <strong class="ledger-num" id="stat-running">{{ scans_running }}</strong>
+      <span class="ledger-note">проходов сейчас</span>
+    </article>
+  </section>
+
+  <section class="bureau-charts" aria-label="Диаграммы" id="bureau-charts">
+    <header class="bureau-sec-head">
+      <h2>Статистика находок</h2>
+      <span class="bureau-sec-meta" id="charts-meta">{{ period.label|default('Всё время') }}</span>
+    </header>
+    <div class="charts-grid">
+      <article class="chart-panel">
+        <h3 class="chart-title">По severity</h3>
+        <div class="chart-sev-bars" id="chart-severity"></div>
+        <ul class="chart-legend" id="legend-severity"></ul>
+      </article>
+      <article class="chart-panel chart-panel--wide">
+        <div class="chart-head">
+          <h3 class="chart-title">Динамика</h3>
+          <span class="chart-timeline-total" id="timeline-total"></span>
+        </div>
+        <div class="chart-timeline-wrap">
+          <svg class="chart-timeline" id="chart-timeline" viewBox="0 0 640 180" preserveAspectRatio="none" role="img" aria-labelledby="timeline-hint"></svg>
+        </div>
+        <p class="chart-hint" id="timeline-hint">Находки по времени за выбранный период</p>
+      </article>
+      <article class="chart-panel">
+        <h3 class="chart-title">По проектам</h3>
+        <div class="chart-projects" id="chart-projects"></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="bureau-columns">
+    <div class="bureau-col bureau-col--main">
+      <header class="bureau-sec-head">
+        <h2>Картотека проектов</h2>
+        <span class="bureau-sec-meta"><span id="cards-count">{{ cards|length }}</span> папок</span>
+      </header>
+
+      {% if not cards %}
+      <div class="bureau-empty">
+        <p class="bureau-empty-title">Картотека пуста</p>
+        <p>Заведите первое дело: укажите цели, подтвердите полномочия и запустите архивный проход.</p>
+        <a class="btn copper" href="/projects/new">Создать первое дело</a>
+      </div>
+      {% else %}
+      <div class="bureau-dossiers" id="project-cards">
+        {% for card in cards %}
+        <a class="bureau-file{% if card.active_scan %} bureau-file--live{% endif %}" href="/projects/{{ card.id }}" data-project-id="{{ card.id }}">
+          <div class="file-tab">
+            <span class="file-id">GI-{{ card.id[:8]|upper }}</span>
+            <span class="file-tab-status">
+              {% if card.active_scan %}
+              <span class="chip chip-live file-status">{{ card.active_scan.stage or 'В работе' }}</span>
+              {% elif card.last_scan and card.last_scan.status == 'failed' %}
+              <span class="chip chip-err file-status">ошибка</span>
+              {% elif card.last_scan and card.last_scan.status == 'done' %}
+              <span class="chip chip-ok file-status">готово</span>
+              {% endif %}
+              <span class="chip file-schedule">{{ card.schedule if card.schedule != 'off' else 'вручную' }}</span>
+            </span>
+          </div>
+          {% if card.active_scan %}
+          <div class="file-scan-track" aria-hidden="true">
+            <div class="file-scan-bar" style="width: {{ card.active_scan.progress or 0 }}%"></div>
+          </div>
+          {% endif %}
+          <div class="file-body">
+            <h3>{{ card.name }}</h3>
+            <p class="file-desc">{{ card.description or 'Описание не заполнено — откройте дело для редактирования.' }}</p>
+            <div class="file-chart" title="Распределение по severity">
+              <span class="file-chart-label">Шкала риска</span>
+              <div class="sev-bar sev-bar--paper card-sev-bar">
+                <i class="c" style="flex:{{ card.counts.critical or 0.01 }}"></i>
+                <i class="h" style="flex:{{ card.counts.high or 0.01 }}"></i>
+                <i class="m" style="flex:{{ card.counts.medium or 0.01 }}"></i>
+                <i class="l" style="flex:{{ card.counts.low or 0.01 }}"></i>
+              </div>
+            </div>
+            <footer class="file-foot">
+              <span class="file-stats card-sev-stats">
+                <em>C</em> <span class="v-c">{{ card.counts.critical }}</span>
+                <em>H</em> <span class="v-h">{{ card.counts.high }}</span>
+                <em>M</em> <span class="v-m">{{ card.counts.medium }}</span>
+                <em>L</em> <span class="v-l">{{ card.counts.low }}</span>
+              </span>
+              <time class="file-time card-scan-time">
+                {% if card.active_scan %}
+                <span class="scan-live-text">{{ card.active_scan.progress or 0 }}% · {{ card.active_scan.stage or card.active_scan.status }}</span>
+                {% elif card.last_scan_label %}
+                Последний проход · {{ card.last_scan_label }}
+                {% else %}
+                Проход не выполнялся
+                {% endif %}
+              </time>
+            </footer>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <aside class="bureau-col bureau-col--wire" id="wire-panel">
+      <header class="bureau-sec-head">
+        <h2>Лента находок</h2>
+        <span class="bureau-sec-meta" id="wire-feed-status">6 записей · авто</span>
+      </header>
+      <p class="wire-disclaimer">Только ваши проекты. Обновление каждые 10–30 секунд — случайная подборка за период.</p>
+
+      <div id="wire-feed-body" class="wire-feed-body" aria-live="polite">
+        {% if not recent %}
+        <div class="wire-empty">
+          <p>Лента пуста — запустите архивный проход по одному из дел.</p>
+        </div>
+        {% else %}
+        <ul class="wire-feed wire-feed--live">
+          {% for item in recent %}
+          <li class="wire-item">
+            <a class="wire-link" href="/projects/{{ item.project_id }}">
+              <div class="wire-head">
+                <span class="stamp-sev {{ item.severity }}">{{ item.severity }}</span>
+                <span class="wire-case">{{ item.project_name }}</span>
+              </div>
+              <strong class="wire-title">{{ item.title }}</strong>
+              {% if item.original_url %}
+              <span class="wire-url">{{ item.original_url }}</span>
+              {% endif %}
+              {% if item.category %}
+              <span class="wire-tag">{{ item.category }}</span>
+              {% endif %}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    </aside>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/dashboard.js?v=20260914o"></script>
+{% endblock %}

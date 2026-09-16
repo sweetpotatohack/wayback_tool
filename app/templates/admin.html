@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Админ · GhostIndex{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Допуск</p>
+    <h1>Администратор</h1>
+    <p class="lede">Заявки на регистрацию. Системный админ перевыпускается при каждом старте процесса — пароль только в консоли.</p>
+  </div>
+  <span class="chip copper">ожидают: {{ pending }}</span>
+</section>
+
+<section class="panel table-wrap">
+  <table class="findings">
+    <thead>
+      <tr>
+        <th>Логин</th>
+        <th>Почта</th>
+        <th>Статус</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>
+          <strong>{{ u.username }}</strong>
+          {% if u.is_bootstrap_admin %}<span class="chip">bootstrap</span>{% endif %}
+          <div class="muted">{{ u.display_name }}</div>
+        </td>
+        <td>{{ u.email }}</td>
+        <td><span class="stamp-sev {{ 'high' if u.status=='pending' else ('info' if u.status=='approved' else 'critical') }}">{{ u.status }}</span></td>
+        <td class="row-actions">
+          {% if not u.is_bootstrap_admin %}
+          <button class="btn sm" data-act="approve" data-id="{{ u.id }}">Одобрить</button>
+          <button class="btn ghost sm" data-act="reject" data-id="{{ u.id }}">Отклонить</button>
+          <button class="btn ghost sm" data-act="disable" data-id="{{ u.id }}">Отключить</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  bindAdmin();
+</script>
+{% endblock %}

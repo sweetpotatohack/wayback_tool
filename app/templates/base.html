@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru" data-preset="{{ theme.preset }}" data-density="{{ theme.density }}" data-grain="{{ theme.grain }}">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}GhostIndex{% endblock %}</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=IBM+Plex+Mono:wght@400;500&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/app.css?v=20260914m" />
+  <style>
+    :root {
+      --accent: {{ theme.accent }};
+      --radius: {{ theme.radius }}px;
+      --font-scale: {{ theme.scale }};
+    }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="dossier-bg" aria-hidden="true">
+    <div class="dossier-bg__wash"></div>
+    <div class="dossier-bg__lines"></div>
+    <div class="dossier-bg__clips">
+      <article class="dossier-clip dossier-clip--a">
+        <p class="dossier-clip-head">Выписка · бюро № 14</p>
+        <p>По материалам архивного прохода установлено наличие индексированных URL в CDX Wayback Machine. Субдомены и конфигурационные пути подлежат дополнительной проверке.</p>
+      </article>
+      <article class="dossier-clip dossier-clip--b">
+        <p class="dossier-clip-head">Газета · фельетон</p>
+        <p>Оперативная сводка: обнаружены следы публикации в открытых архивах. Рекомендуется сверка с живым контентом и исключение ложных совпадений SPA.</p>
+      </article>
+      <article class="dossier-clip dossier-clip--c">
+        <p class="dossier-clip-head">Служебная записка</p>
+        <p>Личное дело ведётся в порядке, установленном инструкцией. Доступ — по списку. Копирование без грифа запрещено.</p>
+      </article>
+    </div>
+    <div class="dossier-bg__stamps">
+      <span class="dossier-stamp dossier-stamp--secret">Секретно</span>
+      <span class="dossier-stamp dossier-stamp--dsp">ДСП</span>
+      <span class="dossier-stamp dossier-stamp--personal">Лично</span>
+      <span class="dossier-stamp dossier-stamp--copy">Копия верна</span>
+    </div>
+    <div class="dossier-bg__refs">
+      <span>Ф. 478-л</span>
+      <span>Оп. 3 · Ед. хр. 12</span>
+      <span>Дело № GI-0002</span>
+      <span>Экз. № 1</span>
+    </div>
+  </div>
+  <div class="grain" aria-hidden="true"></div>
+  {% if user and (user.status == 'approved' or user.is_admin) %}
+  <header class="topbar">
+    <a class="brand" href="/dashboard">
+      <span class="brand-mark">GI</span>
+      <span class="brand-text">
+        <strong>GhostIndex</strong>
+        <small>архивная разведка</small>
+      </span>
+    </a>
+    <nav class="nav">
+      <a href="/dashboard" class="{% if request.url.path == '/dashboard' %}is-on{% endif %}">Дашборд</a>
+      <a href="/projects" class="{% if request.url.path.startswith('/projects') %}is-on{% endif %}">Проекты</a>
+      <a href="/cabinet" class="{% if request.url.path == '/cabinet' %}is-on{% endif %}">Кабинет</a>
+      {% if user.is_admin %}
+      <a href="/admin" class="{% if request.url.path == '/admin' %}is-on{% endif %}">Админ</a>
+      {% endif %}
+    </nav>
+    <div class="who">
+      <a class="who-link" href="/cabinet">
+        {% if avatar_url %}
+        <img class="avatar" src="{{ avatar_url }}" alt="" />
+        {% else %}
+        <span class="avatar avatar-fallback">{{ (user.display_name or user.username)[0]|upper }}</span>
+        {% endif %}
+        <span class="who-name">{{ user.display_name or user.username }}</span>
+      </a>
+      <form action="/logout" method="post"><button class="btn ghost sm" type="submit">Выйти</button></form>
+    </div>
+  </header>
+  {% endif %}
+  <main class="{% block mainclass %}wrap{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/static/js/app.js?v=20260914e"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% block title %}{% if project %}Правка{% else %}Новый проект{% endif %} · GhostIndex{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Карточка коллекции</p>
+    <h1>{% if project %}{{ project.name }}{% else %}Новый проект{% endif %}</h1>
+    <p class="lede">Цели, модули сканирования, live-crawl и LLM. Настройки сгруппированы по разделам — переход по меню слева.</p>
+  </div>
+  <div class="row-actions">
+    <a class="btn ghost" href="{{ '/projects/' + project.id if project else '/projects' }}">← К проекту</a>
+  </div>
+</section>
+
+<form id="project-form" class="settings-shell" data-id="{{ project.id if project else '' }}">
+  {% set dork_tier_selected = dork_tier_selected|default('stable500') %}
+  <nav class="settings-nav" id="settings-nav">
+    <a href="#sec-basic" class="is-on">Основное</a>
+    <a href="#sec-archive">Архив CDX</a>
+    <a href="#sec-filters">Фильтры</a>
+    <a href="#sec-live">Live-crawl</a>
+    <a href="#sec-schedule">Расписание</a>
+    <a href="#sec-llm">LLM</a>
+  </nav>
+
+  <div class="settings-body stack">
+    <section class="settings-section" id="sec-basic">
+      <header class="settings-head">
+        <p class="eyebrow">Основное</p>
+        <p class="hint">Имя коллекции и список доменов — по одному в строке. Добавляйте поддомены явно (напр. lk-parking.example.com).</p>
+      </header>
+      <div class="field-stack">
+        <label>Имя проекта
+          <input name="name" required maxlength="160" value="{{ project.name if project else '' }}" />
+        </label>
+        <label>Описание
+          <textarea name="description" rows="2">{{ project.description if project else '' }}</textarea>
+        </label>
+        <label>Цели (домены / URL)
+          <textarea name="targets" rows="6" required placeholder="example.com&#10;shop.example.com">{{ project.targets if project else '' }}</textarea>
+        </label>
+      </div>
+    </section>
+
+    <section class="settings-section" id="sec-archive">
+      <header class="settings-head">
+        <p class="eyebrow">Архивный проход</p>
+        <p class="hint">CDX Wayback + Common Crawl, разбор снимков, robots/sitemap, OSINT по email/телефонам.</p>
+      </header>
+      <div class="flag-grid">
+        <label class="flag"><input type="checkbox" name="include_subdomains" {% if not project or project.include_subdomains %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">Поддомены (matchType=domain)</span></label>
+        <label class="flag"><input type="checkbox" name="inspect_snapshots" {% if not project or project.inspect_snapshots %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">Разбор содержимого снимков</span></label>
+        <label class="flag"><input type="checkbox" name="scan_javascript" {% if not project or project.scan_javascript %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">JS / JSON / XML в CDX</span></label>
+        <label class="flag"><input type="checkbox" name="follow_robots" {% if not project or project.follow_robots %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">robots.txt → Disallow</span></label>
+        <label class="flag"><input type="checkbox" name="include_non200" {% if project and project.include_non200 %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">Не только HTTP 200</span></label>
+        <label class="flag"><input type="checkbox" name="include_recon" {% if not project or project.include_recon %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">Info: robots / sitemap</span></label>
+        <label class="flag"><input type="checkbox" name="include_commoncrawl" {% if not project or project.include_commoncrawl %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">Common Crawl</span></label>
+        <label class="flag"><input type="checkbox" name="crawl_html_links" {% if not project or project.crawl_html_links %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">Ссылки из HTML-снимков</span></label>
+        <label class="flag"><input type="checkbox" name="multi_snapshot_disclosure" {% if not project or project.multi_snapshot_disclosure %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">Несколько версий phpinfo</span></label>
+        <label class="flag"><input type="checkbox" name="enable_osint" {% if not project or project.enable_osint %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">OSINT: email и телефоны</span></label>
+        <label class="flag"><input type="checkbox" name="enable_live_probe" {% if project and project.enable_live_probe %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">Live-probe (подтверждённое содержимое)</span></label>
+      </div>
+      <div class="bbot-block">
+        <p class="dork-tier-title">BBOT OSINT</p>
+        <p class="hint">Black Lantern: субдомены, email, cloud, nmap, gowitness, nuclei. Требует <code>pipx install bbot</code> от того же пользователя, что запускает GhostIndex (не root).</p>
+        <label class="flag"><input type="checkbox" name="enable_bbot" {% if project and project.enable_bbot %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">Запускать BBOT при скане</span></label>
+        <label class="flag"><input type="checkbox" name="bbot_allow_deadly" {% if project and project.bbot_allow_deadly %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">--allow-deadly (nmap, nuclei, ffuf)</span></label>
+      </div>
+      <div class="dork-tier-block">
+        <p class="dork-tier-title">Dork-утечки по цели</p>
+        <p class="hint">Списки паттернов для CDX Wayback и Common Crawl — .env, ключи, бэкапы, конфиги, admin/API.</p>
+        <div class="dork-tier-grid">
+          <label class="dork-tier-card">
+            <input type="radio" name="dork_tier" value="off" {% if dork_tier_selected == 'off' %}checked{% endif %} />
+            <span class="dork-tier-name">Выключено</span>
+            <span class="dork-tier-desc">Без dork-запросов к архивам.</span>
+          </label>
+          <label class="dork-tier-card">
+            <input type="radio" name="dork_tier" value="fast100" {% if dork_tier_selected == 'fast100' %}checked{% endif %} />
+            <span class="dork-tier-name">Быстрый · Top 100</span>
+            <span class="dork-tier-desc">Критичные утечки — ~5–15 мин на домен.</span>
+          </label>
+          <label class="dork-tier-card">
+            <input type="radio" name="dork_tier" value="stable500" {% if dork_tier_selected == 'stable500' %}checked{% endif %} />
+            <span class="dork-tier-name">Стандарт · Top 500</span>
+            <span class="dork-tier-desc">Рекомендуется: секреты, бэкапы, CMS, API.</span>
+          </label>
+          <label class="dork-tier-card">
+            <input type="radio" name="dork_tier" value="deep1000" {% if dork_tier_selected == 'deep1000' %}checked{% endif %} />
+            <span class="dork-tier-name">Глубокий · Top 1000</span>
+            <span class="dork-tier-desc">Расширенный охват Google-dorks + curated.</span>
+          </label>
+          <label class="dork-tier-card">
+            <input type="radio" name="dork_tier" value="full3652" {% if dork_tier_selected == 'full3652' %}checked{% endif %} />
+            <span class="dork-tier-name">Максимум · все dorks</span>
+            <span class="dork-tier-desc">~3652 CDX-паттерна — полная библиотека, очень долго.</span>
+          </label>
+        </div>
+      </div>
+      <div class="setting-rows">
+        <div class="setting-row limit-row-ui">
+          <div class="setting-row-meta">
+            <span class="setting-row-title">Лимит URL из CDX</span>
+            <span class="setting-row-hint">50–100000 URL на проход</span>
+          </div>
+          <div class="setting-row-actions">
+            <div class="limit-value-wrap" id="max-urls-box">
+              <input type="number" class="input-narrow" name="max_urls" min="50" max="100000" value="{{ project.max_urls if project else 8000 }}" />
+            </div>
+            <label class="switch">
+              <input type="checkbox" name="max_urls_unlimited" class="limit-unlim" data-hide="max-urls-box" {% if project and project.max_urls_unlimited %}checked{% endif %} />
+              <span class="switch-track" aria-hidden="true"></span>
+              <span class="switch-label">Безлимит</span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-row limit-row-ui">
+          <div class="setting-row-meta">
+            <span class="setting-row-title">Снимков на разбор</span>
+            <span class="setting-row-hint">0–500 снимков за проход</span>
+          </div>
+          <div class="setting-row-actions">
+            <div class="limit-value-wrap" id="max-snapshot-fetches-box">
+              <input type="number" class="input-narrow" name="max_snapshot_fetches" min="0" max="500" value="{{ project.max_snapshot_fetches if project else 80 }}" />
+            </div>
+            <label class="switch">
+              <input type="checkbox" name="max_snapshot_fetches_unlimited" class="limit-unlim" data-hide="max-snapshot-fetches-box" {% if project and project.max_snapshot_fetches_unlimited %}checked{% endif %} />
+              <span class="switch-track" aria-hidden="true"></span>
+              <span class="switch-label">Безлимит</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="field-stack grid-2">
+        <label>С даты (YYYYMMDD)
+          <input name="date_from" placeholder="20150101" value="{{ project.date_from if project else '' }}" />
+        </label>
+        <label>По дату
+          <input name="date_to" placeholder="20261231" value="{{ project.date_to if project else '' }}" />
+        </label>
+      </div>
+      <div class="field-stack">
+        <label>Доп. ключевые слова
+          <textarea name="extra_keywords" rows="2" placeholder="bitrix, dbconn, phpmyadmin">{{ project.extra_keywords if project else '' }}</textarea>
+        </label>
+        <label>Доп. расширения
+          <textarea name="extra_extensions" rows="2" placeholder="bak, sql.gz, ovpn">{{ project.extra_extensions if project else '' }}</textarea>
+        </label>
+      </div>
+    </section>
+
+    <section class="settings-section" id="sec-filters">
+      <header class="settings-head">
+        <p class="eyebrow">Фильтры URL</p>
+        <p class="hint"><strong>Allow</strong> — только находки (индекс «Архив URLs» всегда полный). <strong>Deny</strong> — исключить из индекса и находок.</p>
+      </header>
+      <div class="field-stack grid-2">
+        <label>Allow regex
+          <textarea name="url_allow_pattern" rows="2" placeholder="admin|phpinfo|\.env">{{ project.url_allow_pattern if project else '' }}</textarea>
+        </label>
+        <label>Deny regex
+          <textarea name="url_deny_pattern" rows="2" placeholder="\.jpg$|/blog/">{{ project.url_deny_pattern if project else '' }}</textarea>
+        </label>
+      </div>
+    </section>
+
+    <section class="settings-section" id="sec-live">
+      <header class="settings-head">
+        <p class="eyebrow">Live-crawl</p>
+        <p class="hint">Обход живого сайта: webpack chunks, API, regex + LLM. При auth — автозапуск. JWT → тип «HTTP-заголовок».</p>
+      </header>
+      <label class="flag flag-inline">
+        <input type="checkbox" name="enable_live_crawl" id="enable-live-crawl" {% if project and project.enable_live_crawl %}checked{% endif %} />
+        <span class="flag-ui"></span>
+        <span class="flag-text">Включить live-crawler</span>
+      </label>
+
+      <div class="setting-rows">
+        <div class="setting-row limit-row-ui">
+          <div class="setting-row-meta">
+            <span class="setting-row-title">Макс. страниц</span>
+            <span class="setting-row-hint">1–1000 страниц за проход</span>
+          </div>
+          <div class="setting-row-actions">
+            <div class="limit-value-wrap" id="live-crawl-max-pages-box">
+              <input type="number" class="input-narrow" id="live-crawl-max-pages" name="live_crawl_max_pages" min="1" max="1000" value="{{ project.live_crawl_max_pages if project else 80 }}" />
+            </div>
+            <label class="switch">
+              <input type="checkbox" name="live_crawl_pages_unlimited" class="limit-unlim" data-hide="live-crawl-max-pages-box" {% if project and project.live_crawl_pages_unlimited %}checked{% endif %} />
+              <span class="switch-track" aria-hidden="true"></span>
+              <span class="switch-label">Безлимит</span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-row limit-row-ui">
+          <div class="setting-row-meta">
+            <span class="setting-row-title">Глубина ссылок</span>
+            <span class="setting-row-hint">1–1000 уровней BFS</span>
+          </div>
+          <div class="setting-row-actions">
+            <div class="limit-value-wrap" id="live-crawl-max-depth-box">
+              <input type="number" class="input-narrow" id="live-crawl-max-depth" name="live_crawl_max_depth" min="1" max="1000" value="{{ project.live_crawl_max_depth if project else 3 }}" />
+            </div>
+            <label class="switch">
+              <input type="checkbox" name="live_crawl_depth_unlimited" class="limit-unlim" data-hide="live-crawl-max-depth-box" {% if project and project.live_crawl_depth_unlimited %}checked{% endif %} />
+              <span class="switch-track" aria-hidden="true"></span>
+              <span class="switch-label">Безлимит</span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-row limit-row-ui">
+          <div class="setting-row-meta">
+            <span class="setting-row-title">Скорость запросов (RPS)</span>
+            <span class="setting-row-hint">10–200 запросов в секунду</span>
+          </div>
+          <div class="setting-row-actions">
+            <div class="limit-value-wrap" id="live-crawl-rps-box">
+              <input type="number" class="input-narrow" id="live-crawl-rps" name="live_crawl_rps" min="10" max="200" value="{{ project.live_crawl_rps if project else 30 }}" />
+            </div>
+            <label class="switch">
+              <input type="checkbox" name="live_crawl_rps_unlimited" class="limit-unlim" data-hide="live-crawl-rps-box" {% if project and project.live_crawl_rps_unlimited %}checked{% endif %} />
+              <span class="switch-track" aria-hidden="true"></span>
+              <span class="switch-label">Безлимит</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-stack">
+        <label>Авторизация
+          <select name="live_auth_type" id="live-auth-type">
+            {% set lat = project.live_auth_type if project else 'none' %}
+            <option value="none" {% if lat=='none' %}selected{% endif %}>Без авторизации</option>
+            <option value="basic" {% if lat=='basic' %}selected{% endif %}>Login + password</option>
+            <option value="cookie" {% if lat=='cookie' %}selected{% endif %}>Cookie</option>
+            <option value="header" {% if lat=='header' %}selected{% endif %}>HTTP-заголовок / Bearer JWT</option>
+          </select>
+        </label>
+        <div id="live-auth-basic" class="grid-2" hidden>
+          <label>Логин<input name="live_auth_user" autocomplete="off" value="{{ project.live_auth_user if project else '' }}" /></label>
+          <label>Пароль<input type="password" name="live_auth_pass" autocomplete="new-password" placeholder="{% if project and project.live_auth_pass %}сохранён{% endif %}" /></label>
+        </div>
+        <label id="live-auth-cookie" hidden>Cookie<textarea name="live_auth_cookie" rows="2">{{ project.live_auth_cookie if project else '' }}</textarea></label>
+        <label id="live-auth-header" hidden>HTTP-заголовок / Burp raw<textarea name="live_auth_header" rows="4">{{ project.live_auth_header if project else '' }}</textarea></label>
+      </div>
+    </section>
+
+    <section class="settings-section" id="sec-schedule">
+      <header class="settings-head">
+        <p class="eyebrow">Расписание проходов</p>
+        <p class="hint">«Только вручную» — без автозапуска. Или добавьте одно или несколько правил (интервал, ежедневно, по дням недели).</p>
+      </header>
+      <input type="hidden" name="schedule_json" id="schedule-json" value="{{ (project.schedule_json if project else '') | e }}" />
+      <div class="schedule-bar">
+        <button type="button" class="btn copper" id="btn-schedule-edit">Настроить расписание</button>
+        <span class="schedule-status" id="schedule-summary">Только вручную</span>
+      </div>
+      <div id="schedule-rules-preview" class="schedule-list" aria-live="polite"></div>
+    </section>
+
+    <section class="settings-section" id="sec-llm">
+      <header class="settings-head">
+        <p class="eyebrow">LLM</p>
+        <p class="hint">Отбор снимков для загрузки и поиск секретов в JS/конфигах. Ключ API — в кабинете.</p>
+      </header>
+      <div class="flag-grid flag-grid-2">
+        <label class="flag"><input type="checkbox" name="use_llm" {% if not project or project.use_llm %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">LLM: triage + extract</span></label>
+        <label class="flag"><input type="checkbox" name="llm_review" {% if project and project.llm_review %}checked{% endif %} /><span class="flag-ui"></span><span class="flag-text">Review ложных URL</span></label>
+      </div>
+      <div class="setting-rows">
+        <div class="setting-row limit-row-ui">
+          <div class="setting-row-meta">
+            <span class="setting-row-title">Макс. вызовов LLM</span>
+            <span class="setting-row-hint">1–100 вызовов за проход</span>
+          </div>
+          <div class="setting-row-actions">
+            <div class="limit-value-wrap" id="llm-max-calls-box">
+              <input type="number" class="input-narrow" id="llm-max-calls" name="llm_max_calls" min="1" max="100" value="{{ project.llm_max_calls if project else 40 }}" />
+            </div>
+            <label class="switch">
+              <input type="checkbox" name="llm_unlimited" class="limit-unlim" data-hide="llm-max-calls-box" {% if project and project.llm_unlimited %}checked{% endif %} />
+              <span class="switch-track" aria-hidden="true"></span>
+              <span class="switch-label">Безлимит</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% if not project %}
+    <section class="settings-section">
+      <label class="flag flag-inline">
+        <input type="checkbox" name="authorized" required />
+        <span class="flag-ui"></span>
+        <span class="flag-text">Подтверждаю документальное разрешение на оценку указанных целей.</span>
+      </label>
+    </section>
+    {% else %}
+    <input type="hidden" name="authorized" value="1" />
+    {% endif %}
+
+    <div class="settings-footer row-actions">
+      <button class="btn copper" type="submit">Сохранить</button>
+      <a class="btn ghost" href="{{ '/projects/' + project.id if project else '/projects' }}">Отмена</a>
+      {% if project %}
+      <button type="button" class="btn ghost danger" data-delete-project="{{ project.id }}" data-name="{{ project.name }}">Удалить</button>
+      {% endif %}
+    </div>
+    <p class="form-msg" hidden></p>
+  </div>
+</form>
+
+{% include "schedule_modal.html" %}
+{% endblock %}

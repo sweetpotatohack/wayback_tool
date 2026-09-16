@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Ожидание · GhostIndex{% endblock %}
+{% block mainclass %}auth-shell{% endblock %}
+{% block content %}
+<section class="auth-pane visual">
+  <p class="eyebrow">Статус заявки</p>
+  <h1>Карточка на столе<br />архивариуса.</h1>
+</section>
+<section class="auth-pane form-pane">
+  <p class="stamp">pending review</p>
+  <h2>Заявка принята</h2>
+  <p class="lede">Администратор ещё не одобрил вход. Когда статус сменится — можно войти тем же логином.</p>
+  <p class="muted"><a href="/login">Вернуться ко входу</a></p>
+</section>
+{% endblock %}

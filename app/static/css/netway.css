@@ -1,0 +1,480 @@
+/* NetWay — ASM-style attack surface graph (theme-aware) */
+
+.netway-shell {
+  display: grid;
+  grid-template-columns: 1fr min(380px, 36vw);
+  gap: 0;
+  min-height: 72vh;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.netway-canvas-wrap {
+  position: relative;
+  min-height: 520px;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 62%),
+    var(--bg);
+}
+
+.netway-stars {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.netway-canvas-wrap svg.netway-graph {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+  cursor: grab;
+}
+
+.netway-canvas-wrap svg.netway-graph:active { cursor: grabbing; }
+
+.netway-nodes .node-label {
+  font-size: 10px;
+  fill: var(--muted);
+  pointer-events: none;
+  user-select: none;
+  paint-order: stroke fill;
+  stroke: color-mix(in srgb, var(--bg) 88%, transparent);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.netway-nodes g.node.is-selected .node-label {
+  fill: var(--ink);
+  font-weight: 600;
+}
+
+.netway-nodes g.node.is-connected .node-label {
+  fill: color-mix(in srgb, var(--crit) 70%, var(--ink));
+}
+
+.netway-nodes g.node.is-connected circle.node-core {
+  stroke: var(--crit);
+}
+
+.netway-nodes g.node.is-dimmed {
+  opacity: 0.22;
+}
+
+.netway-nodes g.node.is-dragging {
+  cursor: grabbing;
+}
+
+.netway-nodes g.node.is-dragging circle.node-core {
+  stroke: var(--accent);
+  stroke-width: 2.5px;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
+}
+
+.netway-links line {
+  transition: stroke 0.2s ease, stroke-opacity 0.2s ease, stroke-width 0.2s ease;
+}
+
+.netway-links line.is-hot {
+  stroke: var(--crit) !important;
+  stroke-opacity: 0.95 !important;
+  stroke-width: 2.4px !important;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--crit) 45%, transparent));
+}
+
+.netway-links line.is-dim {
+  stroke-opacity: 0.07 !important;
+  stroke-width: 0.5px !important;
+}
+
+.netway-nodes circle.node-core {
+  transition: stroke 0.2s ease, stroke-width 0.2s ease, filter 0.2s ease;
+}
+
+.netway-toolbar {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.netway-toolbar > * { pointer-events: auto; }
+
+.netway-chip {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  color: var(--muted);
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.netway-chip strong { color: var(--accent); margin-left: 0.25rem; }
+
+.netway-chip.is-on {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 14%, var(--card));
+}
+
+.netway-zoom {
+  margin-left: auto;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.netway-zoom button {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  color: var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.netway-zoom button:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--card));
+  border-color: var(--accent);
+}
+
+.netway-side {
+  border-left: 1px solid var(--line);
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  min-height: 520px;
+}
+
+.netway-side-head {
+  padding: 1rem 1.1rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.netway-side-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.35rem;
+}
+
+.netway-side-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.netway-fs-btn.is-on,
+.netway-zoom button[data-netway-detail-fs].is-on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--card));
+}
+
+#netway-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  background: var(--bg);
+  display: block;
+  padding: 0;
+  margin: 0;
+}
+
+#netway-detail-backdrop[hidden] {
+  display: none !important;
+}
+
+#netway-detail-backdrop #netway-root.netway-shell.is-fullscreen {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  max-height: none;
+  grid-template-columns: 1fr min(520px, 42vw);
+  border: none;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+#netway-detail-backdrop .netway-canvas-wrap {
+  min-height: 0;
+  height: 100%;
+}
+
+#netway-detail-backdrop .netway-canvas-wrap svg.netway-graph {
+  min-height: 100%;
+  height: 100%;
+}
+
+#netway-detail-backdrop .netway-side {
+  min-height: 0;
+  height: 100%;
+  border-left: 1px solid var(--line);
+}
+
+#netway-detail-backdrop .netway-side-head {
+  flex-shrink: 0;
+  padding: 1.1rem 1.25rem 0.75rem;
+  background: color-mix(in srgb, var(--bg-2) 55%, var(--card));
+}
+
+#netway-detail-backdrop .netway-type-tabs {
+  flex-shrink: 0;
+}
+
+#netway-detail-backdrop .netway-detail {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+body.netway-detail-fs-open {
+  overflow: hidden;
+}
+
+.netway-shell.is-fullscreen {
+  /* fallback if backdrop JS fails */
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  width: 100vw;
+  max-width: none;
+  min-height: 100vh;
+  border-radius: 0;
+}
+
+.netway-shell.is-fullscreen .netway-detail {
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+.netway-shell.is-fullscreen .netway-kv {
+  grid-template-columns: 7.5rem 1fr;
+  font-size: 0.82rem;
+}
+
+.netway-shell.is-fullscreen .netway-card h4 {
+  font-size: 1.05rem;
+}
+
+.netway-shell.is-fullscreen .netway-neighbor-btn {
+  font-size: 0.85rem;
+}
+
+.netway-browse {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.netway-browse-btn {
+  appearance: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.netway-browse-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+}
+
+.netway-browse-type {
+  flex-shrink: 0;
+  min-width: 4.5rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.netway-browse-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.netway-side-head h3 {
+  font-size: 1rem;
+  color: var(--ink);
+  margin: 0;
+  font-family: Karla, sans-serif;
+}
+
+.netway-export-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.netway-side-head p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.netway-type-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+}
+
+.netway-detail {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem 1.1rem 1.5rem;
+}
+
+.netway-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.netway-card {
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) * 0.55);
+  padding: 0.85rem;
+  margin-bottom: 0.65rem;
+  background: color-mix(in srgb, var(--bg-2) 70%, transparent);
+}
+
+.netway-card h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.92rem;
+  color: var(--ink);
+  word-break: break-word;
+  font-family: Karla, sans-serif;
+}
+
+.netway-kv {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.netway-kv dt { color: var(--muted); margin: 0; }
+.netway-kv dd { margin: 0; color: var(--ink); word-break: break-word; }
+
+.netway-kv dd a { color: var(--accent); }
+
+.netway-neighbors {
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed color-mix(in srgb, var(--line) 80%, transparent);
+}
+
+.netway-neighbors h5 {
+  margin: 0 0 0.45rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-family: Karla, sans-serif;
+}
+
+.netway-neighbor-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  padding: 0.4rem 0.55rem;
+  border-radius: 6px;
+  margin-bottom: 0.3rem;
+  cursor: pointer;
+  font-size: 0.74rem;
+}
+
+.netway-neighbor-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+
+.netway-legend {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.netway-legend span::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.netway-legend .lg-host::before { background: var(--med); }
+.netway-legend .lg-email::before { background: var(--low); }
+.netway-legend .lg-phone::before { background: var(--high); }
+.netway-legend .lg-secret::before { background: var(--accent); }
+.netway-legend .lg-port::before { background: var(--high); }
+.netway-legend .lg-shodan::before { background: var(--med); }
+.netway-legend .lg-finding::before { background: var(--crit); }
+
+.netway-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  font-size: 0.85rem;
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
+  z-index: 5;
+}
+
+@media (max-width: 960px) {
+  .netway-shell { grid-template-columns: 1fr; }
+  .netway-side { border-left: 0; border-top: 1px solid var(--line); min-height: 320px; }
+}

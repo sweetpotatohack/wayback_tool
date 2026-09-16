@@ -1,0 +1,14 @@
+.venv
+venv
+.git
+.gitignore
+data
+__pycache__
+*.pyc
+.env
+*.db
+.idea
+.vscode
+dist
+build
+*.egg-info

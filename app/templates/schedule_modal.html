@@ -1,0 +1,21 @@
+<div id="schedule-modal" class="modal" hidden>
+  <div class="modal-backdrop" data-schedule-close></div>
+  <div class="modal-card stack">
+    <header class="sec-head">
+      <h2>Расписание проходов</h2>
+      <button type="button" class="btn ghost sm" data-schedule-close>✕</button>
+    </header>
+    <label class="flag flag-inline"><input type="checkbox" id="schedule-enabled" /><span class="flag-ui"></span><span class="flag-text">Автоматический запуск по расписанию</span></label>
+    <p class="muted">Если выключено — только ручной запуск с карточки проекта.</p>
+    <div id="schedule-rules" class="stack"></div>
+    <div class="row-actions">
+      <button type="button" class="btn ghost" id="schedule-add-every">+ Интервал</button>
+      <button type="button" class="btn ghost" id="schedule-add-daily">+ Ежедневно</button>
+      <button type="button" class="btn ghost" id="schedule-add-weekly">+ По дням недели</button>
+    </div>
+    <div class="row-actions">
+      <button type="button" class="btn copper" id="schedule-save">Сохранить</button>
+      <button type="button" class="btn ghost" data-schedule-close>Отмена</button>
+    </div>
+  </div>
+</div>

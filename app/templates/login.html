@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Вход · GhostIndex{% endblock %}
+{% block mainclass %}auth-shell{% endblock %}
+{% block content %}
+<section class="auth-pane visual">
+  <p class="eyebrow">Internet Archive · CDX desk</p>
+  <h1>Каждый снимок —<br />свидетель.</h1>
+  <p class="lede">GhostIndex разбирает публичный индекс Wayback Machine: пути, вложения в URL и содержимое архивных копий. Только по целям, на которые есть разрешение.</p>
+  <ul class="auth-points">
+    <li>CDX с пагинацией и доменным охватом</li>
+    <li>Целевой поиск .env, конфигов, ключей, бэкапов</li>
+    <li>Разбор снимков по сигнатурам секретов</li>
+  </ul>
+  <div class="sprockets" aria-hidden="true"></div>
+</section>
+<section class="auth-pane form-pane">
+  <p class="stamp">authorized personnel</p>
+  <h2>Вход в бюро</h2>
+  {% if err %}<p class="banner err">{{ err }}</p>{% endif %}
+  <form class="stack" method="post" action="/login">
+    <label>Логин
+      <input name="username" autocomplete="username" required />
+    </label>
+    <label>Пароль
+      <input name="password" type="password" autocomplete="current-password" required />
+    </label>
+    <button class="btn copper" type="submit">Войти</button>
+  </form>
+  <p class="muted">Нет допуска? <a href="/register">Запросить регистрацию</a> — аккаунт включает администратор.</p>
+</section>
+{% endblock %}

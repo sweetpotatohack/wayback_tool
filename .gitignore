@@ -1,0 +1,17 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+data/*
+!data/.gitkeep
+!data/google_dorks.txt
+.admin_credentials
+.secret_key
+*.db
+.DS_Store
+.idea/
+.vscode/
+dist/
+build/

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Проекты · GhostIndex{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Коллекции</p>
+    <h1>Ваши проекты</h1>
+    <p class="lede">Каждый проект — отдельная карточка целей. Расписание и проходы живут внутри.</p>
+  </div>
+  <a class="btn copper" href="/projects/new">Новый проект</a>
+</section>
+
+{% if not projects %}
+<div class="empty">
+  <p>Ещё ни одной коллекции. Укажите имя, описание и цели — URL через строку.</p>
+  <a class="btn copper" href="/projects/new">Создать проект</a>
+</div>
+{% else %}
+<div class="grid-3">
+  {% for p in projects %}
+  <article class="panel">
+    <div class="dossier-top">
+      <h3><a href="/projects/{{ p.id }}">{{ p.name }}</a></h3>
+      <span class="chip">{{ p.schedule }}</span>
+    </div>
+    <p class="clamp">{{ p.description or 'Без описания' }}</p>
+    <pre class="targets-preview">{{ p.targets }}</pre>
+    <div class="row-actions">
+      <a class="btn sm" href="/projects/{{ p.id }}">Открыть</a>
+      <a class="btn ghost sm" href="/projects/{{ p.id }}/edit">Править</a>
+      <button type="button" class="btn ghost sm danger" data-delete-project="{{ p.id }}" data-name="{{ p.name }}">Удалить</button>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>bindProjectDeletes();</script>
+{% endblock %}

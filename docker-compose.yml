@@ -1,0 +1,16 @@
+services:
+  ghostindex:
+    build: .
+    container_name: ghostindex
+    ports:
+      - "8787:8787"
+    environment:
+      GHOSTINDEX_KEEP_ADMIN: "true"
+      GHOSTINDEX_HOST: "0.0.0.0"
+      GHOSTINDEX_PORT: "8787"
+    volumes:
+      - ghostindex-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  ghostindex-data:

@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} · GhostIndex{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="/static/css/netway.css?v=20260916e" />
+{% endblock %}
+{% block mainclass %}wrap wrap-wide{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Коллекция</p>
+    <h1>{{ project.name }}</h1>
+    <p class="lede">{{ project.description or 'Без описания' }}</p>
+  </div>
+  <div class="row-actions">
+    <a class="btn ghost" href="/projects/{{ project.id }}/edit">Настройки</a>
+    <button class="btn ghost" type="button" id="btn-export-findings">CSV находки</button>
+    <button class="btn ghost" type="button" id="btn-export-urls">CSV URLs</button>
+    <button class="btn copper" id="btn-scan" type="button" data-project-id="{{ project.id }}">Запустить проход</button>
+    <button type="button" class="btn ghost danger" data-delete-project="{{ project.id }}" data-name="{{ project.name }}">Удалить</button>
+  </div>
+</section>
+
+<section class="stat-grid compact" id="counts">
+  <article class="stat crit"><span>Критично</span><strong data-k="critical">0</strong></article>
+  <article class="stat high"><span>Высокая</span><strong data-k="high">0</strong></article>
+  <article class="stat"><span>Средняя</span><strong data-k="medium">0</strong></article>
+  <article class="stat"><span>Низкая</span><strong data-k="low">0</strong></article>
+  <article class="stat"><span>Инфо</span><strong data-k="info">0</strong></article>
+</section>
+
+<div class="split">
+  <section class="panel">
+    <header class="sec-head">
+      <h2>Проход архива</h2>
+      <div class="schedule-inline">
+        <button type="button" class="btn ghost sm" id="btn-schedule-edit">Расписание</button>
+        <span class="muted" id="schedule-summary">Только вручную</span>
+      </div>
+    </header>
+    <div class="progress"><i id="bar"></i></div>
+    <p class="stage" id="stage">Нет активного прохода</p>
+    <pre class="log" id="log"></pre>
+    <p class="muted" id="scan-meta"></p>
+  </section>
+  <section class="panel">
+    <header class="sec-head"><h2>Цели</h2></header>
+    <pre class="targets-preview">{{ project.targets }}</pre>
+    <p class="muted">Поддомены: {{ 'да' if project.include_subdomains else 'нет' }} · снимки: {{ 'да' if project.inspect_snapshots else 'нет' }} · JS/JSON: {{ 'да' if project.scan_javascript else 'нет' }} · LLM: {{ 'да' if project.use_llm else 'нет' }} · Dorks: {% if not project.enable_dorks %}выкл{% elif project.dork_tier == 'fast100' %}Top 100{% elif project.dork_tier == 'deep1000' %}Top 1000{% elif project.dork_tier == 'full3652' %}Все (~3652){% else %}Top 500{% endif %} · CC: {{ 'да' if project.include_commoncrawl else 'нет' }} · OSINT: {{ 'да' if project.enable_osint else 'нет' }} · BBOT: {{ 'да' if project.enable_bbot else 'нет' }}{% if project.enable_bbot and project.bbot_allow_deadly %} (deadly){% endif %} · Live-crawl: {{ 'да' if project.enable_live_crawl else 'нет' }}{% if project.enable_live_crawl and project.live_auth_type != 'none' %} (auth: {{ project.live_auth_type }}){% endif %}</p>
+    <div id="mime-summary" class="mime-summary muted"></div>
+  </section>
+</div>
+
+<nav class="tab-bar" id="project-tabs">
+  <button type="button" class="tab is-on" data-tab="findings">Находки</button>
+  <button type="button" class="tab" data-tab="urls">Архив URLs</button>
+  <button type="button" class="tab" data-tab="netway">NetWay</button>
+</nav>
+
+<section class="panel tab-panel is-on" data-panel="findings">
+  <header class="sec-head findings-head">
+    <h2>Находки</h2>
+    <div class="findings-toolbar">
+      <select id="sev-filter" aria-label="Фильтр по severity">
+        <option value="">все сев.</option>
+        <option value="critical">critical</option>
+        <option value="high">high</option>
+        <option value="medium">medium</option>
+        <option value="low">low</option>
+        <option value="info">info</option>
+      </select>
+      <input id="filter" placeholder="поиск по URL / названию" aria-label="Поиск находок" />
+      <div class="findings-presets" role="group" aria-label="Быстрые фильтры">
+        <button type="button" class="btn ghost sm finding-preset is-on" data-preset="">Все</button>
+        <button type="button" class="btn ghost sm finding-preset" data-preset="ports">Порты</button>
+        <button type="button" class="btn ghost sm finding-preset" data-preset="subdomains">Поддомены</button>
+        <button type="button" class="btn ghost sm finding-preset" data-preset="emails">Email</button>
+      </div>
+      <label class="switch switch-compact">
+        <input type="checkbox" id="hide-recon" checked />
+        <span class="switch-track" aria-hidden="true"></span>
+        <span class="switch-label">Скрыть robots/sitemap</span>
+      </label>
+    </div>
+  </header>
+  <div class="table-wrap">
+    <table class="findings" id="findings">
+      <thead>
+        <tr>
+          <th>Скрин</th>
+          <th>Сев.</th>
+          <th>Находка</th>
+          <th>Источник</th>
+          <th>Wayback</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel tab-panel" data-panel="urls" hidden>
+  <header class="sec-head">
+    <h2>Архив URLs</h2>
+    <span class="muted" id="url-total">0 URL</span>
+    <input id="url-filter" placeholder="поиск по URL, словам, расширению…" />
+    <input id="mime-filter" placeholder="MIME (pdf, html…)" />
+    <label class="check"><input type="checkbox" id="url-interesting" /> только интересные</label>
+    <label class="check"><input type="checkbox" id="url-archived" /> только в архиве</label>
+  </header>
+  <div class="table-wrap">
+    <table class="findings" id="url-table">
+      <thead>
+        <tr>
+          <th>URL</th>
+          <th>MIME</th>
+          <th>Дата</th>
+          <th>Источник</th>
+          <th>Wayback</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="row-actions">
+    <button type="button" class="btn ghost sm" id="url-more">Ещё</button>
+  </div>
+</section>
+
+<section class="panel tab-panel" data-panel="netway" hidden>
+  <header class="sec-head">
+    <h2>NetWay</h2>
+    <span class="muted">Граф связей: домены · email · телефоны · секреты · находки</span>
+  </header>
+  <div id="netway-root" class="netway-shell">
+    <div class="netway-canvas-wrap">
+      <div class="netway-loading">Загрузка графа…</div>
+      <div class="netway-toolbar">
+        <button type="button" class="netway-chip is-on" data-filter="all">Все</button>
+        <button type="button" class="netway-chip" data-filter="domain">Домены <strong data-stat="domains">0</strong></button>
+        <button type="button" class="netway-chip" data-filter="contact">Контакты</button>
+        <button type="button" class="netway-chip" data-filter="secret">Секреты <strong data-stat="secrets">0</strong></button>
+        <button type="button" class="netway-chip" data-filter="port">Порты <strong data-stat="ports">0</strong></button>
+        <button type="button" class="netway-chip" data-filter="shodan">Shodan <strong data-stat="shodan">0</strong></button>
+        <button type="button" class="netway-chip" data-filter="finding">Находки <strong data-stat="findings">0</strong></button>
+        <button type="button" class="netway-chip" data-filter="url">URL <strong data-stat="urls">0</strong></button>
+        <div class="netway-zoom">
+          <button type="button" data-zoom-in" title="Приблизить">+</button>
+          <button type="button" data-zoom-out" title="Отдалить">−</button>
+          <button type="button" data-zoom-reset" title="Сброс масштаба">◎</button>
+          <button type="button" data-netway-detail-fs title="Граф и детали на весь экран">⛶</button>
+        </div>
+      </div>
+      <div class="netway-legend">
+        <span class="lg-host">Домен</span>
+        <span class="lg-email">Email</span>
+        <span class="lg-phone">Телефон</span>
+        <span class="lg-secret">Секрет</span>
+        <span class="lg-port">Порт</span>
+        <span class="lg-shodan">Shodan</span>
+        <span class="lg-finding">Находка</span>
+      </div>
+    </div>
+    <aside class="netway-side">
+      <div class="netway-side-head">
+        <div class="netway-side-head-row">
+          <h3>Детали узла</h3>
+          <div class="netway-side-actions">
+            <button type="button" class="btn ghost sm netway-fs-btn" data-netway-detail-fs title="Граф и детали на весь экран">На весь экран</button>
+            <button type="button" class="btn ghost sm netway-export-btn" data-netway-export title="Subdomains, email, телефоны в TXT">Выгрузка TXT</button>
+          </div>
+        </div>
+        <p>Клик по узлу — полная информация и связи</p>
+      </div>
+      <div class="netway-type-tabs">
+        <button type="button" class="netway-chip is-on" data-type="all">Все</button>
+        <button type="button" class="netway-chip" data-type="domain">Domains</button>
+        <button type="button" class="netway-chip" data-type="contact">Contacts</button>
+        <button type="button" class="netway-chip" data-type="secret">Secrets</button>
+      </div>
+      <div class="netway-detail"></div>
+    </aside>
+  </div>
+</section>
+
+<div id="shot-lightbox" hidden>
+  <div class="shot-toolbar">
+    <button type="button" class="btn ghost sm" data-shot="out" title="Отдалить">−</button>
+    <button type="button" class="btn ghost sm" data-shot="in" title="Приблизить">+</button>
+    <button type="button" class="btn ghost sm" data-shot="reset">100%</button>
+    <span class="muted" id="shot-caption"></span>
+    <button type="button" class="btn copper sm" data-shot="close">Выйти</button>
+  </div>
+  <div class="shot-stage" id="shot-stage">
+    <img id="shot-full" alt="архивный снимок" draggable="false" />
+  </div>
+</div>
+
+<input type="hidden" id="schedule-json" value="{{ (project.schedule_json or '') | e }}" />
+{% include "schedule_modal.html" %}
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="/static/js/netway.js?v=20260916e"></script>
+{% endblock %}

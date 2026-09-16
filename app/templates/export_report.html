@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>GhostIndex — {{ scope_label }} · {{ period_label }}</title>
+  <style>
+    :root {
+      --ink: #2a241c;
+      --muted: #6d6456;
+      --line: #d7ccb8;
+      --accent: #9c4b2d;
+      --crit: #b33b2c;
+      --high: #b07a1e;
+      --card: #fffaf1;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 2rem 2.2rem 3rem;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 11pt;
+      color: var(--ink);
+      background: var(--card);
+      line-height: 1.45;
+    }
+    .masthead {
+      border-top: 3px double var(--ink);
+      border-bottom: 1px solid var(--line);
+      padding: 0.8rem 0 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .masthead h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.65rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .masthead p { margin: 0.15rem 0; color: var(--muted); font-size: 0.85rem; }
+    .stamp {
+      float: right;
+      border: 3px double var(--crit);
+      color: var(--crit);
+      padding: 0.35rem 0.9rem;
+      font-family: "Courier New", monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      transform: rotate(-8deg);
+      opacity: 0.85;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.65rem;
+      margin-bottom: 1.5rem;
+    }
+    .cell {
+      border: 1px solid var(--line);
+      padding: 0.55rem 0.65rem;
+      text-align: center;
+    }
+    .cell strong { display: block; font-size: 1.35rem; }
+    .cell span { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .cell.crit strong { color: var(--crit); }
+    .cell.high strong { color: var(--high); }
+    h2 {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 0.35rem;
+      margin: 1.4rem 0 0.65rem;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-bottom: 1rem; }
+    th, td { border: 1px solid var(--line); padding: 0.35rem 0.45rem; vertical-align: top; text-align: left; }
+    th { background: #f0e8d8; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .finding {
+      border: 1px solid var(--line);
+      margin-bottom: 1rem;
+      page-break-inside: avoid;
+      background: #fffdf8;
+    }
+    .finding-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.45rem 0.65rem;
+      border-bottom: 1px dashed var(--line);
+      background: #f5ede0;
+      font-family: "Courier New", monospace;
+      font-size: 0.72rem;
+    }
+    .sev { font-weight: bold; text-transform: uppercase; }
+    .sev.critical { color: var(--crit); }
+    .sev.high { color: var(--high); }
+    .finding-body {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 0.75rem;
+      padding: 0.65rem;
+    }
+    .finding-body.no-shot { grid-template-columns: 1fr; }
+    .shot-box {
+      border: 1px solid var(--line);
+      background: #ebe3d4;
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .shot-box img { width: 100%; height: auto; display: block; }
+    .shot-empty {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-align: center;
+      padding: 1rem;
+    }
+    .finding-title { font-weight: bold; font-size: 1rem; margin: 0 0 0.35rem; }
+    .meta { font-size: 0.78rem; color: var(--muted); margin: 0.15rem 0; }
+    .url { word-break: break-all; font-family: "Courier New", monospace; font-size: 0.72rem; }
+    .evidence {
+      margin-top: 0.45rem;
+      padding: 0.45rem;
+      border-left: 3px solid var(--accent);
+      background: #f8f2e8;
+      font-family: "Courier New", monospace;
+      font-size: 0.68rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    code {
+      font-family: "Courier New", monospace;
+      font-size: 0.72rem;
+      background: #efe6d6;
+      padding: 0.1rem 0.25rem;
+    }
+    .foot { margin-top: 2rem; font-size: 0.75rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 0.75rem; }
+    @media print {
+      body { padding: 1rem; }
+      .stamp { opacity: 0.6; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stamp">Дело</div>
+  <header class="masthead">
+    <h1>GhostIndex · Сводка бюро</h1>
+    <p><strong>Охват:</strong> {{ scope_label }} · <strong>Период:</strong> {{ period_label }}</p>
+    <p><strong>Архивариус:</strong> {{ user_name }} · <strong>Выпуск:</strong> {{ generated_at }}</p>
+    <p><strong>Карточек:</strong> {{ findings_export_count }} · <strong>Со скриншотами:</strong> {{ shots_in_report }}{% if shots_captured %} · <strong>Новых снимков:</strong> {{ shots_captured }}{% endif %}</p>
+  </header>
+
+  <div class="grid">
+    <div class="cell"><span>Находок</span><strong>{{ total_findings }}</strong></div>
+    <div class="cell crit"><span>Critical</span><strong>{{ sev.critical }}</strong></div>
+    <div class="cell high"><span>High</span><strong>{{ sev.high }}</strong></div>
+    <div class="cell"><span>Medium</span><strong>{{ sev.medium }}</strong></div>
+    <div class="cell"><span>Low + Info</span><strong>{{ sev.low + sev.info }}</strong></div>
+  </div>
+
+  {% if by_project|length > 1 %}
+  <h2>По проектам</h2>
+  <table>
+    <thead><tr><th>Проект</th><th>Critical</th><th>High</th><th>Medium</th><th>Low</th><th>Info</th><th>Всего</th></tr></thead>
+    <tbody>
+      {% for row in by_project %}
+      <tr>
+        <td>{{ row.name }}</td>
+        <td>{{ row.counts.critical }}</td>
+        <td>{{ row.counts.high }}</td>
+        <td>{{ row.counts.medium }}</td>
+        <td>{{ row.counts.low }}</td>
+        <td>{{ row.counts.info }}</td>
+        <td>{{ row.total }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <h2>Находки</h2>
+  {% if not findings %}
+  <p>Нет записей за выбранный период.</p>
+  {% else %}
+  {% for f in findings %}
+  <article class="finding">
+    <div class="finding-head">
+      <span class="sev {{ f.severity }}">{{ f.severity }}</span>
+      <span>{% if f.project_name %}{{ f.project_name }} · {% endif %}{{ f.pattern }} · {{ f.source }} · {{ f.created_at }}</span>
+    </div>
+    <div class="finding-body{% if not f.has_shot %} no-shot{% endif %}">
+      {% if f.has_shot %}
+      <div class="shot-box">
+        <img src="data:image/jpeg;base64,{{ f.shot_b64 }}" alt="screenshot" />
+      </div>
+      {% elif shots_in_report or shots_captured %}
+      <div class="shot-box"><div class="shot-empty">Скриншот недоступен</div></div>
+      {% endif %}
+      <div class="finding-main">
+        <p class="finding-title">{{ f.title }}</p>
+        {% if f.category %}<p class="meta">Категория: {{ f.category }}</p>{% endif %}
+        <p class="url"><a href="{{ f.open_url or f.original_url }}">{{ f.original_url }}</a></p>
+        {% if f.masked_secret %}<p><strong>Значение:</strong> <code>{{ f.masked_secret }}</code></p>{% endif %}
+        {% if f.evidence_file %}<p class="meta">Файл: {{ f.evidence_file }}{% if f.evidence_line %} · стр. {{ f.evidence_line }}:{{ f.evidence_col or '1' }}{% endif %}</p>{% endif %}
+        {% if f.evidence_snippet %}<div class="evidence">{{ f.evidence_snippet }}</div>{% endif %}
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+  {% endif %}
+
+  <p class="foot">GhostIndex — authorized archive review only. Сформировано автоматически, не для публичного распространения.</p>
+</body>
+</html>

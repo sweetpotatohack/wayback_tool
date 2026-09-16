@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Кабинет · GhostIndex{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Личное дело</p>
+    <h1>Кабинет</h1>
+    <p class="lede">Фото, пароль, почта, оформление, оповещения и подключение LLM.</p>
+  </div>
+</section>
+
+<div class="grid-2 gap-lg">
+  <section class="panel stack">
+    <h2>Профиль</h2>
+    <form id="avatar-form" class="avatar-row">
+      {% if avatar_url %}
+      <img class="avatar xl" src="{{ avatar_url }}" alt="" />
+      {% else %}
+      <span class="avatar xl avatar-fallback">{{ (user.display_name or user.username)[0]|upper }}</span>
+      {% endif %}
+      <div>
+        <p class="muted">{{ user.username }}</p>
+        <label class="btn sm">Сменить фото
+          <input type="file" name="file" accept="image/*" hidden />
+        </label>
+      </div>
+    </form>
+
+    <form id="email-form" class="stack">
+      <label>Почта
+        <input type="email" name="email" value="{{ user.email }}" required />
+      </label>
+      <label>Текущий пароль для подтверждения
+        <input type="password" name="current_password" required />
+      </label>
+      <button class="btn" type="submit">Обновить почту</button>
+    </form>
+
+    <form id="password-form" class="stack">
+      <label>Текущий пароль
+        <input type="password" name="current_password" required />
+      </label>
+      <label>Новый пароль
+        <input type="password" name="new_password" minlength="8" required />
+      </label>
+      <button class="btn" type="submit">Сменить пароль</button>
+    </form>
+  </section>
+
+  <section class="panel stack">
+    <h2>Оформление</h2>
+    <p class="muted">Пресет задаёт бумагу и чернила. Акцент можно сместить под себя — хранится только у вашего аккаунта.</p>
+    <form id="theme-form" class="stack">
+      <div class="preset-grid">
+        {% for key, label in [('archive','Архив'), ('night','Ночь'), ('paper','Бумага'), ('terminal','Терминал')] %}
+        <label class="preset {{ key }}">
+          <input type="radio" name="theme_preset" value="{{ key }}" {% if user.theme_preset==key %}checked{% endif %} />
+          <span>{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="grid-2">
+        <label>Акцент
+          <input type="color" name="accent" value="{{ user.accent }}" />
+        </label>
+        <label>Скругление
+          <input type="range" name="radius" min="0" max="24" value="{{ user.radius }}" />
+        </label>
+        <label>Плотность
+          <select name="density">
+            <option value="comfortable" {% if user.density=='comfortable' %}selected{% endif %}>Свободная</option>
+            <option value="compact" {% if user.density=='compact' %}selected{% endif %}>Плотная</option>
+          </select>
+        </label>
+        <label>Масштаб шрифта
+          <input type="range" name="font_scale" min="0.9" max="1.15" step="0.01" value="{{ user.font_scale }}" />
+        </label>
+      </div>
+      <label class="check"><input type="checkbox" name="grain" {% if user.grain %}checked{% endif %} /> Зерно плёнки</label>
+      <button class="btn copper" type="submit">Сохранить стиль</button>
+    </form>
+  </section>
+</div>
+
+<section class="panel stack" style="margin-top:1.5rem">
+  <h2>Оповещения</h2>
+  <form id="notify-form" class="stack">
+    <div class="grid-2">
+      <label class="check"><input type="checkbox" name="notify_email" {% if user.notify_email %}checked{% endif %} /> Письма на почту профиля</label>
+      <label class="check"><input type="checkbox" name="notify_telegram" {% if user.notify_telegram %}checked{% endif %} /> Telegram</label>
+      <label class="check"><input type="checkbox" name="notify_attach_screenshots" {% if user.notify_attach_screenshots %}checked{% endif %} /> Прикреплять скриншоты находок</label>
+    </div>
+    <label>Минимальная критичность
+      <select name="notify_min_severity">
+        {% for k,v in [('critical','только критично'),('high','высокая и выше'),('medium','средняя и выше'),('low','низкая и выше'),('info','все')] %}
+        <option value="{{ k }}" {% if user.notify_min_severity==k %}selected{% endif %}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="grid-2">
+      <label>Токен бота Telegram
+        <input name="telegram_bot_token" placeholder="{{ token_masked or '123456:ABC...' }}" autocomplete="off" />
+      </label>
+      <label>Chat ID
+        <input name="telegram_chat_id" value="{{ user.telegram_chat_id }}" placeholder="123456789" />
+      </label>
+    </div>
+    <div class="row-actions">
+      <button class="btn copper" type="submit">Сохранить каналы</button>
+      <button class="btn ghost" id="btn-tg-test" type="button">Тест Telegram</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel stack" style="margin-top:1.5rem">
+  <h2>SMTP · исходящая почта</h2>
+  <p class="muted">Индивидуальный SMTP вашего аккаунта для оповещений о находках. Если не задан — используется серверный SMTP из .env (если настроен).</p>
+  <form id="smtp-form" class="stack">
+    <label class="check"><input type="checkbox" name="smtp_enabled" {% if user.smtp_enabled %}checked{% endif %} /> Использовать мой SMTP</label>
+    <div class="grid-2">
+      <label>SMTP host
+        <input name="smtp_host" value="{{ user.smtp_host }}" placeholder="smtp.mail.ru" />
+      </label>
+      <label>Порт
+        <input type="number" name="smtp_port" min="1" max="65535" value="{{ user.smtp_port or 587 }}" />
+      </label>
+      <label>Логин
+        <input name="smtp_user" value="{{ user.smtp_user }}" autocomplete="off" />
+      </label>
+      <label>Пароль
+        <input type="password" name="smtp_password" placeholder="{{ smtp_pass_masked or 'пароль SMTP' }}" autocomplete="new-password" />
+      </label>
+      <label>From (от кого)
+        <input name="smtp_from" value="{{ user.smtp_from }}" placeholder="{{ user.email }}" />
+      </label>
+      <label class="check" style="align-self:end"><input type="checkbox" name="smtp_tls" {% if user.smtp_tls %}checked{% endif %} /> STARTTLS</label>
+    </div>
+    <div class="row-actions">
+      <button class="btn copper" type="submit">Сохранить SMTP</button>
+      <button class="btn ghost" id="btn-smtp-test" type="button">Тест письма</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel stack" style="margin-top:1.5rem">
+  <h2>LLM · OpenAI-compatible</h2>
+  <p class="muted">Ollama / LM Studio / vLLM. Триаж смотрит пути всего сайта и решает, что качать — это ускоряет проход. Extract читает уже скачанные конфиги пакетами. Выключенный extract не ослабляет поиск файлов и разбор phpinfo.</p>
+  <form id="llm-form" class="stack">
+    <label class="check"><input type="checkbox" name="llm_enabled" {% if user.llm_enabled %}checked{% endif %} /> Включить LLM для проходов</label>
+    <label>Provider / Base URL
+      <input name="llm_base_url" value="{{ user.llm_base_url }}" placeholder="https://ollama.example.ru" />
+    </label>
+    <label>API path
+      <input name="llm_api_path" value="{{ user.llm_api_path or '/v1/chat/completions' }}" placeholder="/v1/chat/completions" />
+    </label>
+    <label>Model
+      <input name="llm_model" value="{{ user.llm_model }}" placeholder="qwen2.5:32b" />
+    </label>
+    <label>API key (если нужен)
+      <input name="llm_api_key" type="password" placeholder="{{ llm_key_masked or 'не задан' }}" autocomplete="off" />
+    </label>
+    <div class="grid-2">
+      <label>Temperature
+        <input type="number" name="llm_temperature" min="0" max="2" step="0.05" value="{{ user.llm_temperature }}" />
+      </label>
+      <label>Max tokens
+        <input type="number" name="llm_max_tokens" min="16" max="8000" value="{{ user.llm_max_tokens }}" />
+      </label>
+      <label>Timeout (сек)
+        <input type="number" name="llm_timeout" min="10" max="600" value="{{ user.llm_timeout }}" />
+      </label>
+    </div>
+    <div class="row-actions">
+      <button class="btn copper" type="submit">Сохранить LLM</button>
+      <button class="btn ghost" id="btn-llm-test" type="button">Test connection</button>
+    </div>
+  </form>
+</section>
+<p class="toast" id="toast" hidden></p>
+{% endblock %}
+{% block scripts %}
+<script>
+  bindCabinet();
+</script>
+{% endblock %}
