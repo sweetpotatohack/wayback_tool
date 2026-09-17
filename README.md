@@ -12,8 +12,8 @@
 | ![Дашборд](docs/screenshots/02-dashboard.png) | ![Проект](docs/screenshots/01-project-pass.png) |
 | **Находки** — таблица, фильтры, скриншоты | **Картотека** — проекты и лента |
 | ![Находки](docs/screenshots/03-findings.png) | ![Картотека](docs/screenshots/04-projects-feed.png) |
-| **NetWay** — граф связей attack surface | |
-| ![NetWay](docs/screenshots/05-netway.png) | |
+| **NetWay** — граф связей attack surface | **Архив URLs** — индекс Wayback, фильтры |
+| ![NetWay](docs/screenshots/05-netway.png) | ![Архив URLs](docs/screenshots/06-archive-urls.png) |
 
 ## Что умеет
 
