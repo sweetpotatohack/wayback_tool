@@ -64,6 +64,15 @@
         <button type="button" class="btn ghost sm export-btn" data-export="html">HTML</button>
         <button type="button" class="btn ghost sm export-btn" data-export="pdf">PDF</button>
       </div>
+      <div class="export-progress" id="export-progress" hidden aria-live="polite">
+        <div class="export-progress-head">
+          <span class="export-progress-label" id="export-progress-label">Формирование отчёта…</span>
+          <span class="export-progress-pct" id="export-progress-pct">0%</span>
+        </div>
+        <div class="export-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="export-progress-track">
+          <div class="export-progress-bar" id="export-progress-bar"></div>
+        </div>
+      </div>
       <p class="export-hint">Период — как в фильтре выше. HTML/PDF включают скриншоты и описания. PDF требует chromium.</p>
     </div>
   </section>
@@ -234,5 +243,5 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="/static/js/dashboard.js?v=20260914o"></script>
+<script src="/static/js/dashboard.js?v=20260917a"></script>
 {% endblock %}

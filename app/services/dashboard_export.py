@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 from urllib.parse import quote
 
 from fastapi import HTTPException
@@ -76,17 +77,30 @@ def _open_url_for_shot(f: Finding) -> str:
     return replay_url(original, f.capture_ts or "")
 
 
-def ensure_export_screenshots(findings: list[Finding], *, limit: int = 100) -> int:
+def ensure_export_screenshots(
+    findings: list[Finding],
+    *,
+    limit: int = 100,
+    shot_progress: Callable[[int, int], None] | None = None,
+) -> int:
     done = 0
-    for f in findings[:limit]:
+    batch = findings[:limit]
+    total = len(batch)
+    for i, f in enumerate(batch, start=1):
         open_url = _open_url_for_shot(f)
         if not open_url:
+            if shot_progress:
+                shot_progress(i, total)
             continue
         sid = shot_id(open_url)
         if full_path(sid).exists():
+            if shot_progress:
+                shot_progress(i, total)
             continue
         if capture_one(open_url, f.original_url or "", f.pattern or "", f.capture_ts or "", f.source or ""):
             done += 1
+        if shot_progress:
+            shot_progress(i, total)
     return done
 
 
@@ -132,10 +146,18 @@ def build_export_bundle(
     *,
     project_id: str = "all",
     with_screenshots: bool = False,
+    progress: Callable[[int, str], None] | None = None,
+    shot_progress: Callable[[int, int], None] | None = None,
 ) -> dict:
+    def step(pct: int, stage: str) -> None:
+        if progress:
+            progress(pct, stage)
+
+    step(10, "Загрузка проектов")
     projects, scope_label = _resolve_projects(db, user, project_id)
     scope_ids = [p.id for p in projects]
     names = {p.id: p.name for p in projects}
+    step(18, "Статистика периода")
     sev = severity_counts(db, scope_ids, period)
     timeline = findings_timeline(db, scope_ids, period)
     if len(scope_ids) == 1:
@@ -143,11 +165,18 @@ def build_export_bundle(
     else:
         by_project = [row for row in findings_by_project(db, user, period) if row["id"] in scope_ids]
 
+    step(25, "Загрузка находок")
     raw_findings = _load_findings(db, scope_ids, period)
     shots_captured = 0
     if with_screenshots and raw_findings:
-        shots_captured = ensure_export_screenshots(raw_findings, limit=120)
+        step(28, "Подготовка скриншотов")
+        shots_captured = ensure_export_screenshots(
+            raw_findings,
+            limit=120,
+            shot_progress=shot_progress,
+        )
 
+    step(72 if with_screenshots else 45, "Сборка карточек находок")
     findings_rows = [
         _finding_row(f, names, embed_shot=with_screenshots) for f in raw_findings
     ]

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ project.name }} · GhostIndex{% endblock %}
 {% block head %}
-<link rel="stylesheet" href="/static/css/netway.css?v=20260916e" />
+<link rel="stylesheet" href="/static/css/netway.css?v=20260917a" />
 {% endblock %}
 {% block mainclass %}wrap wrap-wide{% endblock %}
 {% block content %}
@@ -104,8 +104,16 @@
     <span class="muted" id="url-total">0 URL</span>
     <input id="url-filter" placeholder="поиск по URL, словам, расширению…" />
     <input id="mime-filter" placeholder="MIME (pdf, html…)" />
-    <label class="check"><input type="checkbox" id="url-interesting" /> только интересные</label>
-    <label class="check"><input type="checkbox" id="url-archived" /> только в архиве</label>
+    <label class="switch switch-compact">
+      <input type="checkbox" id="url-interesting" />
+      <span class="switch-track" aria-hidden="true"></span>
+      <span class="switch-label">только интересные</span>
+    </label>
+    <label class="switch switch-compact">
+      <input type="checkbox" id="url-archived" />
+      <span class="switch-track" aria-hidden="true"></span>
+      <span class="switch-label">только в архиве</span>
+    </label>
   </header>
   <div class="table-wrap">
     <table class="findings" id="url-table">

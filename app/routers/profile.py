@@ -9,8 +9,9 @@ from app import AVATAR_DIR
 from app.db import get_db
 from app.deps import require_user
 from app.models import User
-from app.schemas import EmailIn, LlmIn, NotifyIn, PasswordIn, SmtpIn, ThemeIn
+from app.schemas import EmailIn, LlmIn, NotifyIn, PasswordIn, ProxyIn, SmtpIn, ThemeIn
 from app.security import hash_password, verify_password
+from app.services.http_outbound import test_proxy
 from app.services.llm import LlmConfig, ping
 from app.services.notify import send_test_telegram
 from app.services.smtp_user import send_test_smtp
@@ -59,6 +60,7 @@ def change_theme(payload: ThemeIn, user: User = Depends(require_user), db: Sessi
 @router.post("/notify")
 def change_notify(payload: NotifyIn, user: User = Depends(require_user), db: Session = Depends(get_db)):
     user.notify_email = payload.notify_email
+    user.notify_email_to = payload.notify_email_to.strip().lower()
     user.notify_telegram = payload.notify_telegram
     if payload.telegram_bot_token and not payload.telegram_bot_token.startswith("••••"):
         user.telegram_bot_token = payload.telegram_bot_token.strip()
@@ -68,6 +70,31 @@ def change_notify(payload: NotifyIn, user: User = Depends(require_user), db: Ses
     user.notify_attach_screenshots = payload.notify_attach_screenshots
     db.commit()
     return {"ok": True}
+
+
+@router.post("/proxy")
+def change_proxy(payload: ProxyIn, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    ptype = (payload.outbound_proxy_type or "socks5").strip().lower()
+    if ptype not in {"socks5", "http", "https"}:
+        raise HTTPException(400, "Тип прокси: socks5, http или https")
+    user.outbound_proxy_enabled = payload.outbound_proxy_enabled
+    user.outbound_proxy_type = ptype
+    user.outbound_proxy_host = payload.outbound_proxy_host.strip()
+    user.outbound_proxy_port = int(payload.outbound_proxy_port or 10808)
+    user.outbound_proxy_user = payload.outbound_proxy_user.strip()
+    if payload.outbound_proxy_password and not payload.outbound_proxy_password.startswith("••••"):
+        user.outbound_proxy_password = payload.outbound_proxy_password
+    user.outbound_proxy_vless = payload.outbound_proxy_vless.strip()
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/proxy/test")
+def test_proxy_route(user: User = Depends(require_user)):
+    ok, msg = test_proxy(user)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "detail": msg}
 
 
 @router.post("/smtp")
@@ -96,7 +123,7 @@ def test_smtp(user: User = Depends(require_user)):
 def test_telegram(user: User = Depends(require_user)):
     if not user.telegram_bot_token or not user.telegram_chat_id:
         raise HTTPException(400, "Сначала сохраните токен бота и chat_id")
-    ok, msg = send_test_telegram(user.telegram_bot_token, user.telegram_chat_id)
+    ok, msg = send_test_telegram(user.telegram_bot_token, user.telegram_chat_id, user=user)
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "detail": msg}

@@ -19,6 +19,15 @@ class SmtpProfile:
     use_tls: bool
 
 
+def notify_recipient(user: User | None) -> str:
+    if not user:
+        return ""
+    custom = (getattr(user, "notify_email_to", "") or "").strip()
+    if custom:
+        return custom
+    return (user.email or "").strip()
+
+
 def smtp_for_user(user: User | None) -> SmtpProfile | None:
     if not user or not getattr(user, "smtp_enabled", False):
         return None
@@ -74,28 +83,51 @@ def send_smtp_message(
     for filename, data, mime in attachments or []:
         main, sub = (mime.split("/", 1) + ["octet-stream"])[:2]
         msg.add_attachment(data, maintype=main, subtype=sub, filename=filename)
+    timeout = 45
+    host = profile.host
+    port = profile.port
+    use_ssl = port == 465 or (not profile.use_tls and port == 465)
     try:
-        with smtplib.SMTP(profile.host, profile.port, timeout=20) as smtp:
-            if profile.use_tls:
-                smtp.starttls()
-            if profile.user:
-                smtp.login(profile.user, profile.password)
-            smtp.send_message(msg)
+        if use_ssl:
+            with smtplib.SMTP_SSL(host, port, timeout=timeout) as smtp:
+                if profile.user:
+                    smtp.login(profile.user, profile.password)
+                smtp.send_message(msg)
+        else:
+            with smtplib.SMTP(host, port, timeout=timeout) as smtp:
+                smtp.ehlo()
+                if profile.use_tls:
+                    smtp.starttls()
+                    smtp.ehlo()
+                if profile.user:
+                    smtp.login(profile.user, profile.password)
+                smtp.send_message(msg)
         return True, "Отправлено"
+    except TimeoutError:
+        return False, f"Таймаут {host}:{port} — сервер недоступен из этой сети (VPN, firewall, порт)."
+    except smtplib.SMTPServerDisconnected as exc:
+        hint = " Попробуйте порт 465 без STARTTLS или проверьте VPN."
+        return False, f"{host}:{port}: {str(exc)[:220]}.{hint}"
     except OSError as exc:
-        return False, str(exc)[:400]
+        text = str(exc)[:320]
+        if "timed out" in text.lower() or "unreachable" in text.lower():
+            return False, f"{host}:{port}: {text}. Проверьте VPN и доступность SMTP."
+        return False, text
 
 
 def send_test_smtp(user: User, to: str | None = None) -> tuple[bool, str]:
-    profile = smtp_for_user(user)
+    profile = resolve_smtp(user)
     if not profile:
-        return False, "Сначала включите и сохраните SMTP в кабинете"
-    recipient = (to or user.email or "").strip()
+        return False, "Включите «Мой SMTP» в кабинете или настройте SMTP в .env сервера"
+    recipient = (to or notify_recipient(user) or "").strip()
     if not recipient:
-        return False, "Укажите email получателя в профиле"
-    return send_smtp_message(
+        return False, "Укажите email получателя в блоке «Оповещения»"
+    ok, msg = send_smtp_message(
         profile,
         to=recipient,
         subject="GhostIndex: тест SMTP",
-        body="Тестовое письмо. Ваш SMTP настроен корректно.",
+        body=f"Тестовое письмо на {recipient}. SMTP и адрес получателя настроены.",
     )
+    if ok:
+        return True, f"Письмо отправлено на {recipient}"
+    return False, msg

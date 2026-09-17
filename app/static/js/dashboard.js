@@ -264,52 +264,113 @@
     if ([...sel.options].some((o) => o.value === cur)) sel.value = cur;
   }
 
-  function triggerExport(fmt) {
+  let exportPollTimer = 0;
+  let exportActive = false;
+
+  const FMT_LABELS = { csv: "CSV", txt: "TXT", html: "HTML", pdf: "PDF" };
+
+  function setExportProgress(pct, stage, state) {
+    const box = qs("#export-progress");
+    const bar = qs("#export-progress-bar");
+    const track = qs("#export-progress-track");
+    const label = qs("#export-progress-label");
+    const pctEl = qs("#export-progress-pct");
+    if (!box || !bar) return;
+    box.hidden = false;
+    box.classList.remove("is-error", "is-done");
+    if (state === "error") box.classList.add("is-error");
+    if (state === "done") box.classList.add("is-done");
+    const val = Math.max(0, Math.min(100, Number(pct) || 0));
+    bar.style.width = `${val}%`;
+    if (track) {
+      track.setAttribute("aria-valuenow", String(val));
+      track.setAttribute("aria-valuetext", `${val}% — ${stage || ""}`);
+    }
+    if (label) label.textContent = stage || "Формирование отчёта…";
+    if (pctEl) pctEl.textContent = `${val}%`;
+  }
+
+  function hideExportProgress(delayMs = 1800) {
+    clearTimeout(exportPollTimer);
+    window.setTimeout(() => {
+      const box = qs("#export-progress");
+      if (box && !exportActive) box.hidden = true;
+    }, delayMs);
+  }
+
+  function setExportBusy(busy) {
+    exportActive = busy;
+    document.querySelectorAll(".export-btn").forEach((btn) => {
+      btn.disabled = busy;
+    });
+    const sel = qs("#export-project");
+    if (sel) sel.disabled = busy;
+  }
+
+  async function pollExportJob(jobId, fmt) {
+    const res = await fetch(`/api/dashboard/export/jobs/${jobId}`, { credentials: "same-origin" });
+    if (!res.ok) throw new Error("Не удалось получить статус выгрузки");
+    const data = await res.json();
+    setExportProgress(data.progress, data.stage, data.status);
+
+    if (data.status === "done") {
+      const fileRes = await fetch(`/api/dashboard/export/jobs/${jobId}/file`, { credentials: "same-origin" });
+      if (!fileRes.ok) throw new Error("Файл отчёта недоступен");
+      const blob = await fileRes.blob();
+      const name = data.filename || `ghostindex-export.${fmt}`;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setExportProgress(100, "Скачивание завершено", "done");
+      setExportBusy(false);
+      hideExportProgress(2400);
+      return;
+    }
+
+    if (data.status === "error") {
+      throw new Error(data.error || "Ошибка формирования отчёта");
+    }
+
+    exportPollTimer = window.setTimeout(() => {
+      pollExportJob(jobId, fmt).catch((err) => {
+        setExportProgress(0, err.message || "Ошибка", "error");
+        setExportBusy(false);
+        hideExportProgress(5000);
+      });
+    }, 450);
+  }
+
+  async function triggerExport(fmt) {
+    if (exportActive) return;
     const params = getPeriodParams();
     params.set("format", fmt);
     params.set("project_id", qs("#export-project")?.value || "all");
-    const btn = document.querySelector(`.export-btn[data-export="${fmt}"]`);
-    if (btn) btn.disabled = true;
-    fetch(`/api/dashboard/export?${params.toString()}`, { credentials: "same-origin" })
-      .then(async (res) => {
-        if (!res.ok) {
-          let msg = `Ошибка ${res.status}`;
-          try {
-            const data = await res.json();
-            if (data.detail) msg = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
-          } catch (_) {
-            msg = (await res.text()).slice(0, 200) || msg;
-          }
-          throw new Error(msg);
-        }
-        const disp = res.headers.get("Content-Disposition") || "";
-        const match = disp.match(/filename\*=UTF-8''([^;]+)/i);
-        const name = match ? decodeURIComponent(match[1]) : `ghostindex-export.${fmt}`;
-        return res.blob().then((blob) => ({ blob, name }));
-      })
-      .then(({ blob, name }) => {
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = name;
-        a.click();
-        URL.revokeObjectURL(a.href);
-      })
-      .catch((err) => {
-        window.alert(err.message || "Не удалось выгрузить отчёт");
-      })
-      .finally(() => {
-        if (btn) btn.disabled = false;
+    setExportBusy(true);
+    setExportProgress(0, `Запуск ${FMT_LABELS[fmt] || fmt.toUpperCase()}…`, "running");
+    try {
+      const res = await fetch(`/api/dashboard/export/jobs?${params.toString()}`, {
+        method: "POST",
+        credentials: "same-origin",
       });
-  }
-
-  function setExportReady(ready) {
-    const hint = qs(".export-hint");
-    document.querySelectorAll(".export-btn").forEach((btn) => {
-      btn.disabled = !ready;
-    });
-    if (!ready && hint) {
-      hint.innerHTML =
-        '<strong class="export-warn">Выгрузка недоступна</strong> — перезапустите GhostIndex в терминале (<code>python3 run.py</code>), затем обновите страницу (Ctrl+F5).';
+      if (!res.ok) {
+        let msg = `Ошибка ${res.status}`;
+        try {
+          const data = await res.json();
+          if (data.detail) msg = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+        } catch (_) {
+          msg = (await res.text()).slice(0, 200) || msg;
+        }
+        throw new Error(msg);
+      }
+      const data = await res.json();
+      setExportProgress(data.progress || 2, data.stage || "Старт", data.status || "running");
+      await pollExportJob(data.job_id, fmt);
+    } catch (err) {
+      setExportProgress(0, err.message || "Не удалось выгрузить отчёт", "error");
+      setExportBusy(false);
+      hideExportProgress(5000);
     }
   }
 
@@ -331,7 +392,6 @@
     renderProjects(data.by_project || []);
     renderCards(data.cards || []);
     updateExportProjects(data.cards || []);
-    setExportReady(data.export_ready === true);
     scheduleStatusPoll(data.scans_running || 0);
   }
 
@@ -460,7 +520,6 @@
     if (!qs("#bureau-dashboard")) return;
     initPeriodForm();
     initExport();
-    setExportReady(false);
     fetchStats()
       .then(applyStats)
       .catch(() => {
@@ -486,6 +545,7 @@
     window.addEventListener("pagehide", () => {
       clearTimeout(wireTimer);
       clearTimeout(statusTimer);
+      clearTimeout(exportPollTimer);
     });
   }
 

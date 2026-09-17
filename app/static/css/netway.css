@@ -3,8 +3,11 @@
 .netway-shell {
   display: grid;
   grid-template-columns: 1fr min(380px, 36vw);
+  grid-template-rows: 1fr;
   gap: 0;
-  min-height: 72vh;
+  height: clamp(520px, 72vh, 85vh);
+  min-height: 520px;
+  max-height: 85vh;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
@@ -13,7 +16,8 @@
 
 .netway-canvas-wrap {
   position: relative;
-  min-height: 520px;
+  min-height: 0;
+  height: 100%;
   background:
     radial-gradient(ellipse 80% 60% at 50% 40%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 62%),
     var(--bg);
@@ -34,7 +38,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 520px;
+  min-height: 0;
   cursor: grab;
 }
 
@@ -162,12 +166,15 @@
   background: var(--card);
   display: flex;
   flex-direction: column;
-  min-height: 520px;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .netway-side-head {
   padding: 1rem 1.1rem 0.6rem;
   border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
 }
 
 .netway-side-head-row {
@@ -354,10 +361,12 @@ body.netway-detail-fs-open {
   gap: 0.35rem;
   padding: 0.65rem 1rem;
   border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  flex-shrink: 0;
 }
 
 .netway-detail {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   padding: 1rem 1.1rem 1.5rem;
 }
@@ -475,6 +484,15 @@ body.netway-detail-fs-open {
 }
 
 @media (max-width: 960px) {
-  .netway-shell { grid-template-columns: 1fr; }
-  .netway-side { border-left: 0; border-top: 1px solid var(--line); min-height: 320px; }
+  .netway-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(280px, 45vh) minmax(240px, 1fr);
+    height: clamp(560px, 85vh, 90vh);
+    max-height: 90vh;
+  }
+  .netway-side {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    min-height: 0;
+  }
 }

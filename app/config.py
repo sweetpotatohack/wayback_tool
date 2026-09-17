@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     bbot_output_modules: str = "csv,json,txt,subdomains,emails"
     bbot_timeout_seconds: int = 7200
     bbot_allow_deadly: bool = True
+    http_proxy: str = ""
+    https_proxy: str = ""
+    telegram_api_base: str = "https://api.telegram.org"
 
     def resolved_secret(self) -> str:
         return _ensure_secret_key(self.secret_key)

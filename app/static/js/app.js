@@ -53,6 +53,46 @@ function bindProjectDeletes(redirect) {
 }
 
 
+function setCabinetFoldBody(body, open, toggle) {
+  if (!body) return;
+  body.hidden = !open;
+  body.setAttribute("aria-hidden", open ? "false" : "true");
+  body.classList.toggle("is-open", open);
+  body.querySelectorAll("input, select, textarea, button").forEach((el) => {
+    if (el === toggle || el.classList.contains("cabinet-fold-toggle")) return;
+    if (el.type === "submit" || el.closest(".row-actions")) return;
+    el.disabled = !open;
+  });
+}
+
+function bindCabinetFolds(root) {
+  const scope = root || document;
+  scope.querySelectorAll(".cabinet-fold-toggle").forEach((box) => {
+    if (box.dataset.boundFold) return;
+    box.dataset.boundFold = "1";
+    const bodyId = (box.dataset.fold || "").replace(/^#/, "");
+    const body = bodyId ? document.getElementById(bodyId) : box.closest(".cabinet-fold, .cabinet-subfold")?.querySelector(":scope > .cabinet-fold-body");
+    const alsoIds = (box.dataset.alsoFold || "")
+      .split(",")
+      .map((s) => s.trim().replace(/^#/, ""))
+      .filter(Boolean);
+    const sync = () => {
+      const open = box.checked;
+      setCabinetFoldBody(body, open, box);
+      alsoIds.forEach((id) => setCabinetFoldBody(document.getElementById(id), open, box));
+      const panel = box.closest(".cabinet-fold");
+      const topLevelBodies = new Set(["notify-main-body", "proxy-fold-body", "llm-fold-body"]);
+      if (panel && body && topLevelBodies.has(body.id)) {
+        panel.classList.toggle("is-collapsed", !open);
+      }
+    };
+    box.addEventListener("change", sync);
+    box.addEventListener("input", sync);
+    sync();
+  });
+}
+
+
 function bindLimitFields(root) {
   const scope = root || document;
   scope.querySelectorAll(".limit-unlim").forEach((box) => {
@@ -289,7 +329,7 @@ function bindScheduleEditor(opts) {
       const days = (rule.weekdays || [0, 1, 2, 3, 4]).map(String);
       row.innerHTML = `<strong>По дням недели</strong>
         <div class="weekday-picks">${["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((l, i) =>
-          `<label class="check sm"><input type="checkbox" data-day="${i}" ${days.includes(String(i)) ? "checked" : ""}/> ${l}</label>`).join("")}</div>
+          `<label class="switch switch-compact switch-day"><input type="checkbox" data-day="${i}" ${days.includes(String(i)) ? "checked" : ""}/><span class="switch-track" aria-hidden="true"></span><span class="switch-label">${l}</span></label>`).join("")}</div>
         <label>Время <input type="time" data-k="time" value="${String(rule.hour).padStart(2, "0")}:${String(rule.minute).padStart(2, "0")}" /></label>
         <button type="button" class="btn ghost sm" data-del-rule>Удалить</button>`;
     }
@@ -901,6 +941,9 @@ function escapeAttr(s) {
 }
 
 function bindCabinet() {
+  if (document.body.dataset.cabinetBound) return;
+  document.body.dataset.cabinetBound = "1";
+  bindCabinetFolds(document);
   const toastEl = (m) => toast(m);
 
   const avatarForm = document.getElementById("avatar-form");
@@ -956,30 +999,109 @@ function bindCabinet() {
   document.getElementById("notify-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
+    const master = fd.get("notify_master") === "on";
+    const emailOn = master && fd.get("notify_email") === "on";
+    const telegramOn = master && fd.get("notify_telegram") === "on";
     try {
       await api("/api/profile/notify", {
         method: "POST",
         body: {
-          notify_email: fd.get("notify_email") === "on",
-          notify_telegram: fd.get("notify_telegram") === "on",
+          notify_email: emailOn,
+          notify_email_to: fd.get("notify_email_to") || "",
+          notify_telegram: telegramOn,
           telegram_bot_token: fd.get("telegram_bot_token") || "",
           telegram_chat_id: fd.get("telegram_chat_id") || "",
           notify_min_severity: fd.get("notify_min_severity"),
           notify_attach_screenshots: fd.get("notify_attach_screenshots") === "on",
         },
       });
+      if (emailOn) {
+        await api("/api/profile/smtp", {
+          method: "POST",
+          body: {
+            smtp_enabled: true,
+            smtp_host: fd.get("smtp_host") || "",
+            smtp_port: Number(fd.get("smtp_port") || 587),
+            smtp_user: fd.get("smtp_user") || "",
+            smtp_password: fd.get("smtp_password") || "",
+            smtp_from: fd.get("smtp_from") || "",
+            smtp_tls: fd.get("smtp_tls") === "on",
+          },
+        });
+      }
       toastEl("Оповещения сохранены");
     } catch (err) { toastEl(err.message); }
   });
 
-  document.getElementById("smtp-form")?.addEventListener("submit", async (e) => {
+  document.getElementById("proxy-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     try {
+      await api("/api/profile/proxy", {
+        method: "POST",
+        body: {
+          outbound_proxy_enabled: fd.get("outbound_proxy_enabled") === "on",
+          outbound_proxy_type: fd.get("outbound_proxy_type") || "socks5",
+          outbound_proxy_host: fd.get("outbound_proxy_host") || "127.0.0.1",
+          outbound_proxy_port: Number(fd.get("outbound_proxy_port") || 10808),
+          outbound_proxy_user: fd.get("outbound_proxy_user") || "",
+          outbound_proxy_password: fd.get("outbound_proxy_password") || "",
+          outbound_proxy_vless: fd.get("outbound_proxy_vless") || "",
+        },
+      });
+      toastEl("Прокси сохранён");
+    } catch (err) { toastEl(err.message); }
+  });
+
+  document.getElementById("btn-proxy-test")?.addEventListener("click", async () => {
+    const form = document.getElementById("proxy-form");
+    if (!form) return;
+    const fd = new FormData(form);
+    try {
+      await api("/api/profile/proxy", {
+        method: "POST",
+        body: {
+          outbound_proxy_enabled: fd.get("outbound_proxy_enabled") === "on",
+          outbound_proxy_type: fd.get("outbound_proxy_type") || "socks5",
+          outbound_proxy_host: fd.get("outbound_proxy_host") || "127.0.0.1",
+          outbound_proxy_port: Number(fd.get("outbound_proxy_port") || 10808),
+          outbound_proxy_user: fd.get("outbound_proxy_user") || "",
+          outbound_proxy_password: fd.get("outbound_proxy_password") || "",
+          outbound_proxy_vless: fd.get("outbound_proxy_vless") || "",
+        },
+      });
+      const r = await api("/api/profile/proxy/test", { method: "POST" });
+      toastEl("Прокси: " + (r.detail || "ok"));
+    } catch (err) { toastEl(err.message); }
+  });
+
+  document.getElementById("btn-smtp-test")?.addEventListener("click", async () => {
+    const notifyForm = document.getElementById("notify-form");
+    if (!notifyForm) return;
+    const fd = new FormData(notifyForm);
+    const master = fd.get("notify_master") === "on";
+    const emailOn = master && fd.get("notify_email") === "on";
+    if (!emailOn) {
+      toastEl("Включите оповещения и Email");
+      return;
+    }
+    try {
+      await api("/api/profile/notify", {
+        method: "POST",
+        body: {
+          notify_email: true,
+          notify_email_to: fd.get("notify_email_to") || "",
+          notify_telegram: master && fd.get("notify_telegram") === "on",
+          telegram_bot_token: fd.get("telegram_bot_token") || "",
+          telegram_chat_id: fd.get("telegram_chat_id") || "",
+          notify_min_severity: fd.get("notify_min_severity"),
+          notify_attach_screenshots: fd.get("notify_attach_screenshots") === "on",
+        },
+      });
       await api("/api/profile/smtp", {
         method: "POST",
         body: {
-          smtp_enabled: fd.get("smtp_enabled") === "on",
+          smtp_enabled: true,
           smtp_host: fd.get("smtp_host") || "",
           smtp_port: Number(fd.get("smtp_port") || 587),
           smtp_user: fd.get("smtp_user") || "",
@@ -988,21 +1110,36 @@ function bindCabinet() {
           smtp_tls: fd.get("smtp_tls") === "on",
         },
       });
-      toastEl("SMTP сохранён");
-    } catch (err) { toastEl(err.message); }
-  });
-
-  document.getElementById("btn-smtp-test")?.addEventListener("click", async () => {
-    try {
       const r = await api("/api/profile/smtp/test", { method: "POST" });
       toastEl("SMTP: " + (r.detail || "ok"));
     } catch (err) { toastEl(err.message); }
   });
 
   document.getElementById("btn-tg-test")?.addEventListener("click", async () => {
+    const form = document.getElementById("notify-form");
+    if (!form) return;
+    const fd = new FormData(form);
+    const master = fd.get("notify_master") === "on";
+    const telegramOn = master && fd.get("notify_telegram") === "on";
+    if (!telegramOn) {
+      toastEl("Включите оповещения и Telegram");
+      return;
+    }
     try {
-      await api("/api/profile/notify/test-telegram", { method: "POST" });
-      toastEl("Тест ушёл в Telegram");
+      await api("/api/profile/notify", {
+        method: "POST",
+        body: {
+          notify_email: master && fd.get("notify_email") === "on",
+          notify_email_to: fd.get("notify_email_to") || "",
+          notify_telegram: true,
+          telegram_bot_token: fd.get("telegram_bot_token") || "",
+          telegram_chat_id: fd.get("telegram_chat_id") || "",
+          notify_min_severity: fd.get("notify_min_severity"),
+          notify_attach_screenshots: fd.get("notify_attach_screenshots") === "on",
+        },
+      });
+      const r = await api("/api/profile/notify/test-telegram", { method: "POST" });
+      toastEl("Telegram: " + (r.detail || "сообщение отправлено"));
     } catch (err) { toastEl(err.message); }
   });
 
@@ -1048,6 +1185,7 @@ function bindAdmin() {
 
 
 ready(() => {
+  if (document.getElementById("notify-form")) bindCabinet();
   initProjectSettingsForm();
   const scanBtn = document.getElementById("btn-scan");
   const projectId = scanBtn?.dataset.projectId;

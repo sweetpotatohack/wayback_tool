@@ -91,11 +91,22 @@ class ThemeIn(BaseModel):
 
 class NotifyIn(BaseModel):
     notify_email: bool = True
+    notify_email_to: str = Field(default="", max_length=255)
     notify_telegram: bool = False
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
     notify_min_severity: str = "high"
     notify_attach_screenshots: bool = True
+
+
+class ProxyIn(BaseModel):
+    outbound_proxy_enabled: bool = False
+    outbound_proxy_type: str = Field(default="socks5", max_length=16)
+    outbound_proxy_host: str = Field(default="127.0.0.1", max_length=255)
+    outbound_proxy_port: int = Field(default=10808, ge=1, le=65535)
+    outbound_proxy_user: str = Field(default="", max_length=120)
+    outbound_proxy_password: str = Field(default="", max_length=255)
+    outbound_proxy_vless: str = Field(default="", max_length=8000)
 
 
 class SmtpIn(BaseModel):

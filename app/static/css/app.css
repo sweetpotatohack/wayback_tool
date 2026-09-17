@@ -494,14 +494,49 @@ input, textarea, select {
 textarea { resize: vertical; min-height: 5rem; }
 .check {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.65rem;
   color: var(--ink);
   cursor: pointer;
   line-height: 1.45;
   user-select: none;
 }
-.check input[type="checkbox"],
+.check input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 2.4rem;
+  height: 1.3rem;
+  margin: 0;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-2);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+}
+.check input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(1.3rem - 6px);
+  height: calc(1.3rem - 6px);
+  border-radius: 50%;
+  background: var(--muted);
+  border: none;
+  transform: none;
+  transition: transform 0.18s ease, background 0.18s;
+}
+.check input[type="checkbox"]:checked {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  box-shadow: none;
+}
+.check input[type="checkbox"]:checked::after {
+  transform: translateX(1.05rem);
+  background: var(--accent);
+}
 .check input[type="radio"] {
   appearance: none;
   -webkit-appearance: none;
@@ -516,22 +551,10 @@ textarea { resize: vertical; min-height: 5rem; }
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
-.check input[type="checkbox"]:checked,
 .check input[type="radio"]:checked {
   background: color-mix(in srgb, var(--accent) 28%, var(--bg-2));
   border-color: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
-}
-.check input[type="checkbox"]:checked::after {
-  content: "";
-  position: absolute;
-  left: 0.28rem;
-  top: 0.05rem;
-  width: 0.28rem;
-  height: 0.55rem;
-  border: solid var(--accent);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
 }
 .check-grid {
   display: grid;
@@ -556,7 +579,23 @@ textarea { resize: vertical; min-height: 5rem; }
   padding: 0.55rem 0;
 }
 .check.sm { font-size: 0.85rem; }
-.check.sm input[type="checkbox"] { width: 0.95rem; height: 0.95rem; }
+.check.sm input[type="checkbox"] {
+  width: 2rem;
+  height: 1.1rem;
+}
+.check.sm input[type="checkbox"]::after {
+  width: calc(1.1rem - 6px);
+  height: calc(1.1rem - 6px);
+}
+.check.sm input[type="checkbox"]:checked::after {
+  transform: translateX(0.85rem);
+}
+.weekday-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.65rem;
+  margin: 0.35rem 0 0.5rem;
+}
 
 .option-grid {
   display: grid;
@@ -896,7 +935,7 @@ body.modal-open { overflow: hidden; }
 .flag-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .flag {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.65rem;
   padding: 0.6rem 0.7rem;
   border: 1px solid var(--line);
@@ -921,40 +960,49 @@ body.modal-open { overflow: hidden; }
   margin: 0;
   pointer-events: none;
 }
-.flag-ui {
-  width: 1.05rem;
-  height: 1.05rem;
-  margin-top: 0.12rem;
+.flag-ui,
+.flag .switch-track {
+  width: 2.4rem;
+  height: 1.3rem;
   flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--line) 85%, var(--accent));
-  border-radius: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
   background: var(--bg-2);
   position: relative;
-  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition: background 0.18s, border-color 0.18s;
 }
-.flag-ui::after {
+.flag-ui::after,
+.flag .switch-track::after {
   content: "";
   position: absolute;
-  left: 0.28rem;
-  top: 0.05rem;
-  width: 0.28rem;
-  height: 0.55rem;
-  border: solid var(--accent);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg) scale(0);
-  transition: transform 0.12s ease;
+  top: 2px;
+  left: 2px;
+  width: calc(1.3rem - 6px);
+  height: calc(1.3rem - 6px);
+  border-radius: 50%;
+  background: var(--muted);
+  border: none;
+  transform: none;
+  transition: transform 0.18s ease, background 0.18s;
+}
+.flag-text {
+  flex: 1;
+  font-size: 0.88rem;
 }
 .flag:has(input:checked) {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
   background: color-mix(in srgb, var(--accent) 8%, var(--card));
 }
-.flag:has(input:checked) .flag-ui {
-  background: color-mix(in srgb, var(--accent) 28%, var(--bg-2));
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+.flag:has(input:checked) .flag-ui,
+.flag:has(input:checked) .switch-track {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
 }
-.flag:has(input:checked) .flag-ui::after { transform: rotate(45deg) scale(1); }
-.flag-text { font-size: 0.88rem; }
+.flag:has(input:checked) .flag-ui::after,
+.flag:has(input:checked) .switch-track::after {
+  transform: translateX(1.05rem);
+  background: var(--accent);
+}
 
 .setting-rows {
   display: grid;
@@ -1053,6 +1101,87 @@ body.modal-open { overflow: hidden; }
   background: var(--accent);
 }
 .switch:has(input:checked) .switch-label { color: var(--accent); }
+
+.switch-day .switch-track {
+  width: 2rem;
+  height: 1.1rem;
+}
+.switch-day .switch-track::after {
+  width: calc(1.1rem - 6px);
+  height: calc(1.1rem - 6px);
+}
+.switch:has(input:checked) .switch-day .switch-track::after,
+.switch-day:has(input:checked) .switch-track::after {
+  transform: translateX(0.85rem);
+}
+.switch-day .switch-label {
+  min-width: 1.4rem;
+  text-align: center;
+}
+
+.cabinet-fold-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.cabinet-fold-head h2 {
+  margin: 0 0 0.35rem;
+}
+.cabinet-fold-head .muted {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 0.82rem;
+}
+.cabinet-fold-body {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed color-mix(in srgb, var(--line) 75%, transparent);
+}
+.cabinet-fold-body[hidden] {
+  display: none !important;
+}
+.cabinet-subfold {
+  padding: 0.85rem 0 0;
+}
+.cabinet-subfold + .cabinet-subfold {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed color-mix(in srgb, var(--line) 55%, transparent);
+}
+.cabinet-subfold-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+.cabinet-fold.is-collapsed .cabinet-fold-head {
+  margin-bottom: 0;
+}
+.cabinet-fold.is-collapsed .cabinet-fold-head h2 {
+  margin-bottom: 0.15rem;
+}
+.cabinet-subfold .cabinet-fold-body {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.cabinet-subfold .cabinet-fold-body.is-open,
+.cabinet-subfold .cabinet-fold-body:not([hidden]) {
+  margin-top: 0.35rem;
+}
+.cabinet-subfold-head .sub-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.cabinet-smtp-nested {
+  margin-top: 0.5rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed color-mix(in srgb, var(--line) 55%, transparent);
+}
 
 .schedule-bar {
   display: flex;
@@ -1747,6 +1876,61 @@ body.modal-open { overflow: hidden; }
 
 .export-hint code {
   font-size: 0.65rem;
+}
+
+.export-progress {
+  flex: 1 1 100%;
+  margin: 0.15rem 0 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-2) 88%, transparent);
+}
+
+.export-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+}
+
+.export-progress-label {
+  color: var(--ink);
+}
+
+.export-progress-pct {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.export-progress-track {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 65%, transparent);
+  overflow: hidden;
+}
+
+.export-progress-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 75%, #000),
+    var(--accent)
+  );
+  transition: width 0.35s ease;
+}
+
+.export-progress.is-error .export-progress-bar {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--crit) 70%, #000), var(--crit));
+}
+
+.export-progress.is-done .export-progress-bar {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--med) 70%, #000), var(--med));
 }
 
 /* Charts */

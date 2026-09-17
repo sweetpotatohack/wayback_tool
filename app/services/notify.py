@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import httpx
 
+from app.config import get_settings
 from app.models import Finding, Project, Scan, User
 from app.services.classifier import SEVERITY_RANK
+from app.services.http_outbound import human_network_error, sync_client
 from app.services.screenshots import full_path, replay_url, shot_id
-from app.services.smtp_user import resolve_smtp, send_smtp_message
+from app.services.smtp_user import notify_recipient, resolve_smtp, send_smtp_message
 
 SEVERITY_RU = {
     "critical": "критично",
@@ -67,41 +69,76 @@ def notify_scan_complete(user: User | None, project: Project, scan: Scan, findin
     text = _body(project, scan, hits)
     if user.notify_email:
         profile = resolve_smtp(user)
-        if profile:
+        recipient = notify_recipient(user)
+        if profile and recipient:
             attachments = _screenshot_attachments(user, hits)
             send_smtp_message(
                 profile,
-                to=user.email,
+                to=recipient,
                 subject=f"[GhostIndex] {project.name}: {len(hits)} находок",
                 body=text,
                 attachments=attachments or None,
             )
     if user.notify_telegram and user.telegram_bot_token and user.telegram_chat_id:
-        _send_telegram(user.telegram_bot_token, user.telegram_chat_id, text)
+        _send_telegram(user.telegram_bot_token, user.telegram_chat_id, text, user=user)
 
 
-def _send_telegram(token: str, chat_id: str, text: str) -> None:
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
+def _telegram_api_url(token: str, method: str) -> str:
+    base = get_settings().telegram_api_base.rstrip("/")
+    return f"{base}/bot{token}/{method}"
+
+
+def _parse_telegram_error(response: httpx.Response) -> str:
     try:
-        httpx.post(
-            url,
-            json={"chat_id": chat_id, "text": text[:3500]},
-            timeout=15,
+        data = response.json()
+    except Exception:
+        return response.text[:300] or f"HTTP {response.status_code}"
+    if data.get("ok"):
+        return ""
+    desc = str(data.get("description") or "Неизвестная ошибка Telegram")
+    low = desc.lower()
+    if "chat not found" in low:
+        return (
+            "Чат не найден. Добавьте бота в группу/канал, напишите /start "
+            "и проверьте chat_id (для группы id отрицательный)."
         )
+    if "bot was blocked" in low:
+        return "Пользователь заблокировал бота — разблокируйте или напишите /start."
+    if "unauthorized" in low or "token" in low:
+        return "Неверный токен бота. Проверьте токен у @BotFather."
+    if "group chat was upgraded" in low:
+        return "Группа стала supergroup — обновите chat_id (новый id в getUpdates)."
+    return desc
+
+
+def _send_telegram(token: str, chat_id: str, text: str, *, user: User | None = None) -> None:
+    url = _telegram_api_url(token, "sendMessage")
+    try:
+        with sync_client(user=user) as client:
+            client.post(url, json={"chat_id": chat_id, "text": text[:3500]})
     except httpx.HTTPError:
         return
 
 
-def send_test_telegram(token: str, chat_id: str) -> tuple[bool, str]:
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
+def send_test_telegram(token: str, chat_id: str, *, user: User | None = None) -> tuple[bool, str]:
+    token = (token or "").strip()
+    chat_id = (chat_id or "").strip()
+    if not token or not chat_id:
+        return False, "Укажите токен бота и chat_id"
+    url = _telegram_api_url(token, "sendMessage")
     try:
-        response = httpx.post(
-            url,
-            json={"chat_id": chat_id, "text": "GhostIndex: тестовое оповещение. Канал настроен."},
-            timeout=15,
-        )
-        if response.status_code == 200:
-            return True, "Сообщение отправлено"
-        return False, response.text[:300]
+        with sync_client(user=user) as client:
+            response = client.post(
+                url,
+                json={"chat_id": chat_id, "text": "GhostIndex: тестовое оповещение. Канал настроен."},
+            )
     except httpx.HTTPError as exc:
-        return False, str(exc)
+        return False, human_network_error(exc, host="api.telegram.org", user=user)
+
+    if response.status_code == 200:
+        try:
+            if response.json().get("ok"):
+                return True, "Сообщение отправлено"
+        except Exception:
+            return True, "Сообщение отправлено"
+    return False, _parse_telegram_error(response)

@@ -19,6 +19,7 @@ from app.services.dashboard_export import (
     render_pdf,
     render_txt,
 )
+from app.services.dashboard_export_jobs import get_export_job, start_export_job
 from app.services.dashboard_stats import dashboard_payload, parse_period
 from app.services.dashboard_wire import WIRE_FEED_LIMIT, wire_feed_items
 
@@ -157,6 +158,64 @@ def dashboard_wire_feed(
     return {"items": wire_feed_items(db, user, limit=WIRE_FEED_LIMIT, period=filt)}
 
 
+@router.post("/api/dashboard/export/jobs")
+def dashboard_export_start(
+    user: User = Depends(require_user),
+    format: str = Query("csv", alias="format"),
+    period: str = Query("all"),
+    date: str = Query(""),
+    date_from: str = Query(""),
+    date_to: str = Query(""),
+    project_id: str = Query("all"),
+):
+    fmt = (format or "csv").strip().lower()
+    if fmt not in {"csv", "txt", "html", "pdf"}:
+        raise HTTPException(400, "format: csv, txt, html или pdf")
+    filt = parse_period(period, date=date, date_from=date_from, date_to=date_to)
+    job = start_export_job(user.id, fmt, filt, project_id or "all")
+    return {
+        "job_id": job.id,
+        "format": fmt,
+        "progress": job.progress,
+        "stage": job.stage,
+        "status": job.status,
+    }
+
+
+@router.get("/api/dashboard/export/jobs/{job_id}")
+def dashboard_export_status(job_id: str, user: User = Depends(require_user)):
+    job = get_export_job(job_id, user.id)
+    if not job:
+        raise HTTPException(404, "Задание не найдено")
+    return {
+        "job_id": job.id,
+        "format": job.fmt,
+        "progress": job.progress,
+        "stage": job.stage,
+        "status": job.status,
+        "error": job.error,
+        "filename": job.filename if job.status == "done" else "",
+    }
+
+
+@router.get("/api/dashboard/export/jobs/{job_id}/file")
+def dashboard_export_download(job_id: str, user: User = Depends(require_user)):
+    job = get_export_job(job_id, user.id)
+    if not job:
+        raise HTTPException(404, "Задание не найдено")
+    if job.status != "done" or not job.filepath or not job.filepath.is_file():
+        raise HTTPException(409, "Файл ещё не готов")
+    data = job.filepath.read_bytes()
+    disp = content_disposition(job.filename or f"ghostindex-export.{job.fmt}")
+    media = {
+        "csv": "text/csv; charset=utf-8",
+        "txt": "text/plain; charset=utf-8",
+        "html": "text/html; charset=utf-8",
+        "pdf": "application/pdf",
+    }.get(job.fmt, "application/octet-stream")
+    return Response(content=data, media_type=media, headers={"Content-Disposition": disp})
+
+
 @router.get("/api/dashboard/export")
 def dashboard_export(
     user: User = Depends(require_user),
@@ -260,6 +319,9 @@ def cabinet(request: Request, user: User | None = Depends(get_current_user)):
     smtp_pass_masked = ""
     if user.smtp_password:
         smtp_pass_masked = "••••" + user.smtp_password[-4:]
+    proxy_pass_masked = ""
+    if user.outbound_proxy_password:
+        proxy_pass_masked = "••••" + user.outbound_proxy_password[-4:]
     return render(
         request,
         "profile.html",
@@ -267,6 +329,7 @@ def cabinet(request: Request, user: User | None = Depends(get_current_user)):
         token_masked=token_masked,
         llm_key_masked=llm_key_masked,
         smtp_pass_masked=smtp_pass_masked,
+        proxy_pass_masked=proxy_pass_masked,
     )
 
 

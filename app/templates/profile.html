@@ -76,99 +76,208 @@
           <input type="range" name="font_scale" min="0.9" max="1.15" step="0.01" value="{{ user.font_scale }}" />
         </label>
       </div>
-      <label class="check"><input type="checkbox" name="grain" {% if user.grain %}checked{% endif %} /> Зерно плёнки</label>
+      <label class="switch switch-compact">
+        <input type="checkbox" name="grain" {% if user.grain %}checked{% endif %} />
+        <span class="switch-track" aria-hidden="true"></span>
+        <span class="switch-label">Зерно плёнки</span>
+      </label>
       <button class="btn copper" type="submit">Сохранить стиль</button>
     </form>
   </section>
 </div>
 
-<section class="panel stack" style="margin-top:1.5rem">
-  <h2>Оповещения</h2>
+{% set notify_on = user.notify_email or user.notify_telegram %}
+
+<section class="panel stack cabinet-fold{% if not notify_on %} is-collapsed{% endif %}" style="margin-top:1.5rem">
   <form id="notify-form" class="stack">
-    <div class="grid-2">
-      <label class="check"><input type="checkbox" name="notify_email" {% if user.notify_email %}checked{% endif %} /> Письма на почту профиля</label>
-      <label class="check"><input type="checkbox" name="notify_telegram" {% if user.notify_telegram %}checked{% endif %} /> Telegram</label>
-      <label class="check"><input type="checkbox" name="notify_attach_screenshots" {% if user.notify_attach_screenshots %}checked{% endif %} /> Прикреплять скриншоты находок</label>
-    </div>
-    <label>Минимальная критичность
-      <select name="notify_min_severity">
-        {% for k,v in [('critical','только критично'),('high','высокая и выше'),('medium','средняя и выше'),('low','низкая и выше'),('info','все')] %}
-        <option value="{{ k }}" {% if user.notify_min_severity==k %}selected{% endif %}>{{ v }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <div class="grid-2">
-      <label>Токен бота Telegram
-        <input name="telegram_bot_token" placeholder="{{ token_masked or '123456:ABC...' }}" autocomplete="off" />
+    <header class="cabinet-fold-head">
+      <div>
+        <h2>Оповещения</h2>
+        <p class="muted">Email, Telegram и SMTP для отправки находок. Выключено — блок свёрнут.</p>
+      </div>
+      <label class="switch switch-compact">
+        <input type="checkbox" name="notify_master" class="cabinet-fold-toggle" data-fold="notify-main-body" {% if notify_on %}checked{% endif %} />
+        <span class="switch-track" aria-hidden="true"></span>
+        <span class="switch-label">Включить</span>
       </label>
-      <label>Chat ID
-        <input name="telegram_chat_id" value="{{ user.telegram_chat_id }}" placeholder="123456789" />
+    </header>
+
+    <div class="cabinet-fold-body stack" id="notify-main-body" {% if not notify_on %}hidden{% endif %}>
+      <div class="cabinet-subfold">
+        <div class="cabinet-subfold-head">
+          <span class="sub-title">Email</span>
+          <label class="switch switch-compact">
+            <input type="checkbox" name="notify_email" class="cabinet-fold-toggle" data-fold="notify-email-body" {% if user.notify_email %}checked{% endif %} />
+            <span class="switch-track" aria-hidden="true"></span>
+            <span class="switch-label">Включить</span>
+          </label>
+        </div>
+        <div class="cabinet-fold-body stack" id="notify-email-body" {% if not user.notify_email %}hidden{% endif %}>
+          <label><strong>Куда отправлять (To)</strong> — адрес получателя находок
+            <input type="email" name="notify_email_to" value="{{ user.notify_email_to or user.email }}" placeholder="theskill19@yandex.ru" />
+          </label>
+          <label class="switch switch-compact">
+            <input type="checkbox" name="notify_attach_screenshots" {% if user.notify_attach_screenshots %}checked{% endif %} />
+            <span class="switch-track" aria-hidden="true"></span>
+            <span class="switch-label">Прикреплять скриншоты к email</span>
+          </label>
+
+          <div class="cabinet-smtp-nested" id="notify-smtp-wrap">
+            <p class="sub-title" style="margin:0 0 0.65rem">SMTP · исходящая почта</p>
+            <p class="muted" style="margin:0 0 0.65rem;font-size:0.82rem">Сервер отправки (From). Без него email-оповещения не работают.</p>
+            <div class="stack">
+              <div class="grid-2">
+                <label>SMTP host
+                  <input name="smtp_host" value="{{ user.smtp_host }}" placeholder="smtp.yandex.ru" />
+                </label>
+                <label>Порт
+                  <input type="number" name="smtp_port" min="1" max="65535" value="{{ user.smtp_port or 587 }}" />
+                </label>
+                <label>Логин
+                  <input name="smtp_user" value="{{ user.smtp_user }}" autocomplete="off" />
+                </label>
+                <label>Пароль
+                  <input type="password" name="smtp_password" placeholder="{{ smtp_pass_masked or 'пароль SMTP' }}" autocomplete="new-password" />
+                </label>
+                <label>From (от кого)
+                  <input name="smtp_from" value="{{ user.smtp_from }}" placeholder="{{ user.email }}" />
+                </label>
+                <label class="switch switch-compact" style="align-self:end">
+                  <input type="checkbox" name="smtp_tls" {% if user.smtp_tls %}checked{% endif %} />
+                  <span class="switch-track" aria-hidden="true"></span>
+                  <span class="switch-label">STARTTLS (порт 587)</span>
+                </label>
+              </div>
+              <p class="muted" style="margin:0;font-size:0.78rem">Таймаут или «connection closed» — проверьте VPN, порт 465+SSL или доступность SMTP из вашей сети.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cabinet-subfold">
+        <div class="cabinet-subfold-head">
+          <span class="sub-title">Telegram</span>
+          <label class="switch switch-compact">
+            <input type="checkbox" name="notify_telegram" class="cabinet-fold-toggle" data-fold="notify-telegram-body" {% if user.notify_telegram %}checked{% endif %} />
+            <span class="switch-track" aria-hidden="true"></span>
+            <span class="switch-label">Включить</span>
+          </label>
+        </div>
+        <div class="cabinet-fold-body stack" id="notify-telegram-body" {% if not user.notify_telegram %}hidden{% endif %}>
+          <div class="grid-2">
+            <label>Токен бота Telegram
+              <input name="telegram_bot_token" placeholder="{{ token_masked or '123456:ABC...' }}" autocomplete="off" />
+            </label>
+            <label>Chat ID
+              <input name="telegram_chat_id" value="{{ user.telegram_chat_id }}" placeholder="-1001234567890" />
+            </label>
+          </div>
+          <p class="muted" style="margin:0;font-size:0.82rem">Добавьте бота в группу, напишите <code>/start</code>. ID группы — отрицательный.</p>
+          <div class="row-actions" style="margin-top:0.5rem">
+            <button class="btn ghost sm" id="btn-tg-test" type="button">Тест Telegram</button>
+          </div>
+        </div>
+      </div>
+
+      <label>Минимальная критичность
+        <select name="notify_min_severity">
+          {% for k,v in [('critical','только критично'),('high','высокая и выше'),('medium','средняя и выше'),('low','низкая и выше'),('info','все')] %}
+          <option value="{{ k }}" {% if user.notify_min_severity==k %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
       </label>
-    </div>
-    <div class="row-actions">
-      <button class="btn copper" type="submit">Сохранить каналы</button>
-      <button class="btn ghost" id="btn-tg-test" type="button">Тест Telegram</button>
+
+      <div class="row-actions">
+        <button class="btn copper" type="submit">Сохранить оповещения</button>
+        <button class="btn ghost" id="btn-smtp-test" type="button">Тест письма</button>
+      </div>
     </div>
   </form>
 </section>
 
-<section class="panel stack" style="margin-top:1.5rem">
-  <h2>SMTP · исходящая почта</h2>
-  <p class="muted">Индивидуальный SMTP вашего аккаунта для оповещений о находках. Если не задан — используется серверный SMTP из .env (если настроен).</p>
-  <form id="smtp-form" class="stack">
-    <label class="check"><input type="checkbox" name="smtp_enabled" {% if user.smtp_enabled %}checked{% endif %} /> Использовать мой SMTP</label>
-    <div class="grid-2">
-      <label>SMTP host
-        <input name="smtp_host" value="{{ user.smtp_host }}" placeholder="smtp.mail.ru" />
+<section class="panel stack cabinet-fold{% if not user.outbound_proxy_enabled %} is-collapsed{% endif %}" style="margin-top:1.5rem">
+  <form id="proxy-form" class="stack">
+    <header class="cabinet-fold-head">
+      <div>
+        <h2>Исходящий прокси</h2>
+        <p class="muted">VLESS → sing-box/xray → локальный SOCKS5 ниже. Для Telegram и внешних запросов.</p>
+      </div>
+      <label class="switch switch-compact">
+        <input type="checkbox" name="outbound_proxy_enabled" class="cabinet-fold-toggle" data-fold="proxy-fold-body" {% if user.outbound_proxy_enabled %}checked{% endif %} />
+        <span class="switch-track" aria-hidden="true"></span>
+        <span class="switch-label">Включить</span>
       </label>
-      <label>Порт
-        <input type="number" name="smtp_port" min="1" max="65535" value="{{ user.smtp_port or 587 }}" />
+    </header>
+    <div class="cabinet-fold-body stack" id="proxy-fold-body" {% if not user.outbound_proxy_enabled %}hidden{% endif %}>
+      <div class="grid-2">
+        <label>Тип
+          <select name="outbound_proxy_type">
+            <option value="socks5" {% if user.outbound_proxy_type=='socks5' or not user.outbound_proxy_type %}selected{% endif %}>SOCKS5</option>
+            <option value="http" {% if user.outbound_proxy_type=='http' %}selected{% endif %}>HTTP</option>
+            <option value="https" {% if user.outbound_proxy_type=='https' %}selected{% endif %}>HTTPS</option>
+          </select>
+        </label>
+        <label>Хост
+          <input name="outbound_proxy_host" value="{{ user.outbound_proxy_host or '127.0.0.1' }}" placeholder="127.0.0.1" />
+        </label>
+        <label>Порт
+          <input type="number" name="outbound_proxy_port" min="1" max="65535" value="{{ user.outbound_proxy_port or 10808 }}" placeholder="10808" />
+        </label>
+        <label>Логин <span class="muted">(опц.)</span>
+          <input name="outbound_proxy_user" value="{{ user.outbound_proxy_user }}" autocomplete="off" />
+        </label>
+        <label>Пароль <span class="muted">(опц.)</span>
+          <input type="password" name="outbound_proxy_password" placeholder="{{ proxy_pass_masked or 'не задан' }}" autocomplete="off" />
+        </label>
+      </div>
+      <label>VLESS / подписка <span class="muted">(заметки)</span>
+        <textarea name="outbound_proxy_vless" rows="2" placeholder="vless://...">{{ user.outbound_proxy_vless }}</textarea>
       </label>
-      <label>Логин
-        <input name="smtp_user" value="{{ user.smtp_user }}" autocomplete="off" />
-      </label>
-      <label>Пароль
-        <input type="password" name="smtp_password" placeholder="{{ smtp_pass_masked or 'пароль SMTP' }}" autocomplete="new-password" />
-      </label>
-      <label>From (от кого)
-        <input name="smtp_from" value="{{ user.smtp_from }}" placeholder="{{ user.email }}" />
-      </label>
-      <label class="check" style="align-self:end"><input type="checkbox" name="smtp_tls" {% if user.smtp_tls %}checked{% endif %} /> STARTTLS</label>
     </div>
     <div class="row-actions">
-      <button class="btn copper" type="submit">Сохранить SMTP</button>
-      <button class="btn ghost" id="btn-smtp-test" type="button">Тест письма</button>
+      <button class="btn copper" type="submit">Сохранить прокси</button>
+      <button class="btn ghost" id="btn-proxy-test" type="button">Тест → Telegram API</button>
     </div>
   </form>
 </section>
 
-<section class="panel stack" style="margin-top:1.5rem">
-  <h2>LLM · OpenAI-compatible</h2>
-  <p class="muted">Ollama / LM Studio / vLLM. Триаж смотрит пути всего сайта и решает, что качать — это ускоряет проход. Extract читает уже скачанные конфиги пакетами. Выключенный extract не ослабляет поиск файлов и разбор phpinfo.</p>
+<section class="panel stack cabinet-fold{% if not user.llm_enabled %} is-collapsed{% endif %}" style="margin-top:1.5rem">
   <form id="llm-form" class="stack">
-    <label class="check"><input type="checkbox" name="llm_enabled" {% if user.llm_enabled %}checked{% endif %} /> Включить LLM для проходов</label>
-    <label>Provider / Base URL
-      <input name="llm_base_url" value="{{ user.llm_base_url }}" placeholder="https://ollama.example.ru" />
-    </label>
-    <label>API path
-      <input name="llm_api_path" value="{{ user.llm_api_path or '/v1/chat/completions' }}" placeholder="/v1/chat/completions" />
-    </label>
-    <label>Model
-      <input name="llm_model" value="{{ user.llm_model }}" placeholder="qwen2.5:32b" />
-    </label>
-    <label>API key (если нужен)
-      <input name="llm_api_key" type="password" placeholder="{{ llm_key_masked or 'не задан' }}" autocomplete="off" />
-    </label>
-    <div class="grid-2">
-      <label>Temperature
-        <input type="number" name="llm_temperature" min="0" max="2" step="0.05" value="{{ user.llm_temperature }}" />
+    <header class="cabinet-fold-head">
+      <div>
+        <h2>LLM · OpenAI-compatible</h2>
+        <p class="muted">Ollama / LM Studio / vLLM для проходов.</p>
+      </div>
+      <label class="switch switch-compact">
+        <input type="checkbox" name="llm_enabled" class="cabinet-fold-toggle" data-fold="llm-fold-body" {% if user.llm_enabled %}checked{% endif %} />
+        <span class="switch-track" aria-hidden="true"></span>
+        <span class="switch-label">Включить</span>
       </label>
-      <label>Max tokens
-        <input type="number" name="llm_max_tokens" min="16" max="8000" value="{{ user.llm_max_tokens }}" />
+    </header>
+    <div class="cabinet-fold-body stack" id="llm-fold-body" {% if not user.llm_enabled %}hidden{% endif %}>
+      <label>Provider / Base URL
+        <input name="llm_base_url" value="{{ user.llm_base_url }}" placeholder="https://ollama.example.ru" />
       </label>
-      <label>Timeout (сек)
-        <input type="number" name="llm_timeout" min="10" max="600" value="{{ user.llm_timeout }}" />
+      <label>API path
+        <input name="llm_api_path" value="{{ user.llm_api_path or '/v1/chat/completions' }}" placeholder="/v1/chat/completions" />
       </label>
+      <label>Model
+        <input name="llm_model" value="{{ user.llm_model }}" placeholder="qwen2.5:32b" />
+      </label>
+      <label>API key (если нужен)
+        <input name="llm_api_key" type="password" placeholder="{{ llm_key_masked or 'не задан' }}" autocomplete="off" />
+      </label>
+      <div class="grid-2">
+        <label>Temperature
+          <input type="number" name="llm_temperature" min="0" max="2" step="0.05" value="{{ user.llm_temperature }}" />
+        </label>
+        <label>Max tokens
+          <input type="number" name="llm_max_tokens" min="16" max="8000" value="{{ user.llm_max_tokens }}" />
+        </label>
+        <label>Timeout (сек)
+          <input type="number" name="llm_timeout" min="10" max="600" value="{{ user.llm_timeout }}" />
+        </label>
+      </div>
     </div>
     <div class="row-actions">
       <button class="btn copper" type="submit">Сохранить LLM</button>
